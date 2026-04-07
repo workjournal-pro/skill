@@ -13,20 +13,32 @@
 | `/journal init` | Initialize session and select journal |
 | `/journal help` | Print command reference |
 
-## MCP Tools
+## API Endpoints
 
-These MCP tools must be available for the skill to function:
+Base URL: `https://api.workjournal.pro`
 
-| Tool | Purpose |
-|------|---------|
-| `create_entry` | Create a new journal entry with title, summary, what_changed, and context |
-| `search_entries` | Search entries by keyword or phrase |
-| `list_entries` | List entries with optional limit |
-| `list_journals` | List journals the user has access to |
-| `create_journal` | Create a new journal |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/v1/journals` | List journals |
+| GET | `/v1/journals/:id` | Get journal details |
+| POST | `/v1/journals` | Create journal |
+| GET | `/v1/journals/:id/entries?limit=N` | List entries |
+| POST | `/v1/journals/:id/entries` | Create entry |
+| GET | `/v1/journals/:id/entries/search?q=...` | Search entries |
+| POST | `/v1/auth/refresh` | Refresh access token |
 
 ## Authentication
 
-The skill uses `@workjournal/cli` for authentication. Run `/journal login` or `npx @workjournal/cli login` to authenticate via browser-based OAuth. Credentials are stored at `~/.workjournal/credentials.json`.
+Credentials are stored at `~/.workjournal/credentials.json` with the shape:
 
-For environments without a browser (SSH, CI), set the `WORKJOURNAL_API_KEY` environment variable with a valid Supabase JWT.
+```json
+{
+  "access_token": "...",
+  "refresh_token": "...",
+  "expires_at": "2026-04-07T12:00:00.000Z"
+}
+```
+
+Run `/journal login` or `bash skills/journal/scripts/login.sh` to authenticate via browser-based OAuth.
+
+For environments without a browser (SSH, CI), set the `WORKJOURNAL_API_KEY` environment variable with a valid access token.
