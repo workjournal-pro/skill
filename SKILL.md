@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool (curl) and internet access. Credentials stored at ~/.workjournal/credentials.json.
 metadata:
   author: humanesky
-  version: "0.2"
+  version: "0.3"
 ---
 
 You are handling a `/journal` command for the Workjournal skill. Parse the user's arguments and execute the appropriate action by calling the Workjournal REST API via curl.
@@ -135,20 +135,44 @@ Find journal entries relevant to the current conversation context.
 
 ### `login`
 
-Authenticate with the Workjournal API.
+Authenticate with the Workjournal API. The flow is two phases — *start* (print a URL) and *finish* (exchange the pasted code) — driven by the assistant on behalf of the user.
 
-1. Tell the user you will run the login command.
-2. Execute the login script via the shell:
+1. **Run the start command** to generate a PKCE-protected authorize URL:
    ```sh
-   bash skills/journal/scripts/login.sh
+   bash skills/journal/scripts/login.sh start
    ```
-   If the script is not found at that path (e.g. skill installed globally), fall back to:
+   If the script is not found at that path (e.g. the skill is installed globally), fall back to:
    ```sh
-   npx --yes @workjournal/cli login
+   npx --yes @workjournal/cli login start
    ```
-3. This opens a browser window for OAuth login and stores credentials locally at `~/.workjournal/credentials.json`.
-4. If the browser cannot open (SSH, containers), the CLI prints a URL for the user to visit manually.
-5. After successful login, confirm the authenticated user.
+   Capture the authorize URL from the command's stdout. It looks like `https://app.workjournal.pro/authorize?...&code_challenge=...&code_challenge_method=S256`.
+
+2. **Tell the user**, in your own words, to:
+   - Open the URL in any browser.
+   - Log in if prompted.
+   - Click **Approve** on the consent screen.
+   - Copy the 8-character code shown on the page.
+   - Paste the code back into this conversation.
+
+   Show them the URL.
+
+3. **Wait for the user's next message containing the code.** It will be 8 characters from the alphabet `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`. Trim whitespace; the CLI uppercases it for you.
+
+4. **Run the finish command** with the code:
+   ```sh
+   bash skills/journal/scripts/login.sh finish <CODE>
+   ```
+   Or, in fallback mode:
+   ```sh
+   npx --yes @workjournal/cli login finish <CODE>
+   ```
+
+5. On success the CLI prints "Authenticated successfully!" and writes credentials to `~/.workjournal/credentials.json`. Confirm the login to the user. If the command exits non-zero, surface the error message verbatim and suggest re-running `login` to start over.
+
+**Notes:**
+- The code expires 5 minutes after `start` and is single-use. If the user delays too long, run `start` again to get a fresh URL.
+- This flow does not require a browser on the same machine as the assistant — the user can open the URL on any device. It works equally well in SSH sessions, dev containers, and CI.
+- In Claude.ai web and Cowork sandboxes, `~/.workjournal/credentials.json` does not persist between conversations. Those environments should use the Workjournal MCP server (`@workjournal/mcp-server`) instead, which stores credentials in the MCP client config.
 
 ### `init`
 
