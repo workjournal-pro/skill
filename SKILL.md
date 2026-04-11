@@ -3,8 +3,8 @@ name: journal
 description: Development journal for AI coding agents. Write entries capturing decisions and context, search past work, and review recent entries. Use when the user invokes /journal, asks to log what was done, or wants to search past decisions.
 compatibility: Requires Bash tool (curl) and internet access. Credentials stored at ~/.workjournal/credentials.json.
 metadata:
-  author: humanesky
-  version: "0.3"
+  author: Venture Squad LTD
+  version: "0.4"
 ---
 
 You are handling a `/journal` command for the Workjournal skill. Parse the user's arguments and execute the appropriate action by calling the Workjournal REST API via curl.
