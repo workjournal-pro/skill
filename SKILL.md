@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool (curl) and internet access. Credentials stored at ~/.workjournal/credentials.json.
 metadata:
   author: Venture Squad LTD
-  version: "0.4"
+  version: "0.5"
 ---
 
 You are handling a `/journal` command for the Workjournal skill. Parse the user's arguments and execute the appropriate action by calling the Workjournal REST API via curl.
@@ -76,7 +76,8 @@ Write a new journal entry capturing what was done in this conversation.
      -H "Content-Type: application/json" \
      -d '{
        "summary": "1-3 sentence summary including the title",
-       "what_changed": "Detailed markdown description of changes, file paths, decisions, trade-offs"
+       "what_changed": "Detailed markdown description of changes, file paths, decisions, trade-offs",
+       "client": "claude-code"
      }'
    ```
 5. After the entry is created, confirm to the user with the entry summary.
@@ -222,7 +223,7 @@ All endpoints require `Authorization: Bearer <token>` header.
 | GET | `/v1/journals/:id` | — | Get journal details |
 | POST | `/v1/journals` | `{"name", "description?"}` | Create journal |
 | GET | `/v1/journals/:id/entries` | `?limit=N&offset=N` | List entries |
-| POST | `/v1/journals/:id/entries` | `{"summary", "what_changed"}` | Create entry |
+| POST | `/v1/journals/:id/entries` | `{"summary", "what_changed", "client?"}` | Create entry |
 | GET | `/v1/journals/:id/entries/search` | `?q=query` | Search entries |
 | POST | `/v1/auth/refresh` | `{"refresh_token"}` | Refresh access token |
 
