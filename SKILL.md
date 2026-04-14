@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool (curl) and internet access. Credentials stored at ~/.workjournal/credentials.json.
 metadata:
   author: Venture Squad LTD
-  version: "0.5"
+  version: "0.6"
 ---
 
 You are handling a `/journal` command for the Workjournal skill. Parse the user's arguments and execute the appropriate action by calling the Workjournal REST API via curl.
@@ -61,7 +61,13 @@ Set these values for use in commands below:
 
 Write a new journal entry capturing what was done in this conversation.
 
-**Requires an active journal.** If no journal has been selected in this session, list journals first and ask the user to pick one.
+**Requires an active journal.** Resolve the journal using this order:
+
+1. Check if a `.workjournal` file exists by walking up from the current directory to the filesystem root:
+   - Run: `cat .workjournal 2>/dev/null`
+   - If not found, check the parent directory, then its parent, and so on until the root is reached.
+   - If found and it contains valid JSON with a `journal_id` field, use that journal automatically without prompting.
+2. If no `.workjournal` file is found in any parent directory, and no journal has been selected in this session, list journals and ask the user to pick one.
 
 1. Review the conversation so far to understand what work was performed.
 2. If no title was provided, generate a concise title summarizing the work.
@@ -86,7 +92,7 @@ Write a new journal entry capturing what was done in this conversation.
 
 Search past journal entries for the given query.
 
-**Requires an active journal.**
+**Requires an active journal.** Resolve the journal using the same order as Write Entry (`.workjournal` file first, then session selection).
 
 1. URL-encode the query string.
 2. Search:
@@ -103,7 +109,7 @@ Search past journal entries for the given query.
 
 Show the N most recent journal entries (default: 1).
 
-**Requires an active journal.**
+**Requires an active journal.** Resolve the journal using the same order as Write Entry (`.workjournal` file first, then session selection).
 
 1. Parse N from the arguments. If not provided, default to 1.
 2. List entries:
@@ -120,7 +126,7 @@ Show the N most recent journal entries (default: 1).
 
 Find journal entries relevant to the current conversation context.
 
-**Requires an active journal.**
+**Requires an active journal.** Resolve the journal using the same order as Write Entry (`.workjournal` file first, then session selection).
 
 1. Analyze the current conversation to extract key topics, file paths, feature names, and technical terms.
 2. Run multiple search calls with the most relevant keywords (2-4 searches):
