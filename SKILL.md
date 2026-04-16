@@ -1,17 +1,17 @@
 ---
-name: journal
-description: Development journal for AI coding agents. Write entries capturing decisions and context, search past work, and review recent entries. Use when the user invokes /journal, asks to log what was done, or wants to search past decisions.
-compatibility: Requires Bash tool (curl) and internet access. Credentials stored at ~/.workjournal/credentials.json.
+name: workjournal
+description: Development journal for AI coding agents. Write entries capturing decisions and context, search past work, and review recent entries. Use when the user invokes /workjournal, asks to log what was done, or wants to search past decisions.
+compatibility: Requires Bash tool and internet access. Credentials stored at ~/.workjournal/credentials.json.
 metadata:
   author: Venture Squad LTD
-  version: "0.6"
+  version: "0.7"
 ---
 
-You are handling a `/journal` command for the Workjournal skill. Parse the user's arguments and execute the appropriate action by calling the Workjournal REST API via curl.
+You are handling a `/workjournal` command for the Workjournal skill. Parse the user's arguments and execute the appropriate action using the `workjournal` CLI.
 
 ## Arguments
 
-The user invoked: `/journal {args}`
+The user invoked: `/workjournal {args}`
 
 Parse `{args}` to determine which subcommand to run:
 
@@ -26,32 +26,29 @@ Parse `{args}` to determine which subcommand to run:
 
 ---
 
+## CLI Usage
+
+All data operations use the `workjournal` CLI with the `--json` flag for machine-readable output. The CLI is invoked via:
+
+```sh
+npx --yes @workjournal/cli <command> --json
+```
+
+The CLI handles authentication (token refresh), journal resolution (`.workjournal` file or global config), and error handling internally.
+
+---
+
 ## Authentication
 
-All API calls require a Bearer token. Before any API call, follow this procedure:
+Before running any command, check if credentials exist:
 
-1. Read `~/.workjournal/credentials.json`. It contains:
-   ```json
-   {
-     "access_token": "...",
-     "refresh_token": "...",
-     "expires_at": "2026-04-07T12:00:00.000Z"
-   }
-   ```
-2. If the file does not exist, tell the user: *"No credentials found. Run `/journal login` to authenticate."* and stop.
-3. Compare `expires_at` to the current date/time. If the token is expired, refresh it:
-   ```sh
-   curl -s -X POST https://api.workjournal.pro/v1/auth/refresh \
-     -H 'Content-Type: application/json' \
-     -d '{"refresh_token":"REFRESH_TOKEN_HERE"}'
-   ```
-   The response contains `{"access_token":"...","refresh_token":"...","expires_in":3600}`. Compute new `expires_at` and write the updated credentials back to `~/.workjournal/credentials.json` (with file mode 600).
-4. If the refresh call returns a non-200 status, tell the user: *"Session expired. Run `/journal login` to re-authenticate."* and stop.
-5. Use the `access_token` as the Bearer token for all subsequent API calls.
+```sh
+cat ~/.workjournal/credentials.json 2>/dev/null
+```
 
-Set these values for use in commands below:
-- `API_URL=https://api.workjournal.pro`
-- `TOKEN=<access_token from credentials>`
+If the file does not exist, tell the user: *"No credentials found. Run `/workjournal login` to authenticate."* and stop.
+
+If credentials exist, proceed — the CLI handles token refresh automatically.
 
 ---
 
@@ -61,46 +58,28 @@ Set these values for use in commands below:
 
 Write a new journal entry capturing what was done in this conversation.
 
-**Requires an active journal.** Resolve the journal using this order:
-
-1. Check if a `.workjournal` file exists by walking up from the current directory to the filesystem root:
-   - Run: `cat .workjournal 2>/dev/null`
-   - If not found, check the parent directory, then its parent, and so on until the root is reached.
-   - If found and it contains valid JSON with a `journal_id` field, use that journal automatically without prompting.
-2. If no `.workjournal` file is found in any parent directory, and no journal has been selected in this session, list journals and ask the user to pick one.
+**Requires an active journal.** If no journal is configured, run `init` first.
 
 1. Review the conversation so far to understand what work was performed.
 2. If no title was provided, generate a concise title summarizing the work.
-3. List journals if needed:
+3. Create the entry:
    ```sh
-   curl -s "$API_URL/v1/journals" -H "Authorization: Bearer $TOKEN"
+   npx --yes @workjournal/cli journal entries write \
+     -s "1-3 sentence summary including the title" \
+     -b "Detailed markdown description of changes, file paths, decisions, trade-offs" \
+     --json
    ```
-4. Create the entry:
-   ```sh
-   curl -s -X POST "$API_URL/v1/journals/$JOURNAL_ID/entries" \
-     -H "Authorization: Bearer $TOKEN" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "summary": "1-3 sentence summary including the title",
-       "what_changed": "Detailed markdown description of changes, file paths, decisions, trade-offs",
-       "client": "claude-code"
-     }'
-   ```
-5. After the entry is created, confirm to the user with the entry summary.
+4. After the entry is created, confirm to the user with the entry summary.
 
 ### `search <query>`
 
 Search past journal entries for the given query.
 
-**Requires an active journal.** Resolve the journal using the same order as Write Entry (`.workjournal` file first, then session selection).
-
-1. URL-encode the query string.
-2. Search:
+1. Search:
    ```sh
-   curl -s "$API_URL/v1/journals/$JOURNAL_ID/entries/search?q=QUERY" \
-     -H "Authorization: Bearer $TOKEN"
+   npx --yes @workjournal/cli journal entries search "QUERY" --json
    ```
-3. Display the results in a readable format:
+2. Display the results in a readable format:
    - Entry summary and date
    - Relevant excerpt
    - If no results, let the user know and suggest broadening the search.
@@ -109,13 +88,10 @@ Search past journal entries for the given query.
 
 Show the N most recent journal entries (default: 1).
 
-**Requires an active journal.** Resolve the journal using the same order as Write Entry (`.workjournal` file first, then session selection).
-
 1. Parse N from the arguments. If not provided, default to 1.
 2. List entries:
    ```sh
-   curl -s "$API_URL/v1/journals/$JOURNAL_ID/entries?limit=N" \
-     -H "Authorization: Bearer $TOKEN"
+   npx --yes @workjournal/cli journal entries last N --json
    ```
 3. Display each entry with:
    - Date and sequence number
@@ -126,13 +102,10 @@ Show the N most recent journal entries (default: 1).
 
 Find journal entries relevant to the current conversation context.
 
-**Requires an active journal.** Resolve the journal using the same order as Write Entry (`.workjournal` file first, then session selection).
-
 1. Analyze the current conversation to extract key topics, file paths, feature names, and technical terms.
 2. Run multiple search calls with the most relevant keywords (2-4 searches):
    ```sh
-   curl -s "$API_URL/v1/journals/$JOURNAL_ID/entries/search?q=KEYWORD" \
-     -H "Authorization: Bearer $TOKEN"
+   npx --yes @workjournal/cli journal entries search "KEYWORD" --json
    ```
 3. Deduplicate and rank the results by relevance.
 4. Present the most relevant entries:
@@ -150,7 +123,7 @@ Authenticate with the Workjournal API. The flow is two phases — *start* (print
    ```
    If the script is not found at that path (e.g. the skill is installed globally), fall back to:
    ```sh
-   npx --yes @workjournal/cli login start
+   npx --yes @workjournal/cli auth login start
    ```
    Capture the authorize URL from the command's stdout. It looks like `https://app.workjournal.pro/authorize?...&code_challenge=...&code_challenge_method=S256`.
 
@@ -171,7 +144,7 @@ Authenticate with the Workjournal API. The flow is two phases — *start* (print
    ```
    Or, in fallback mode:
    ```sh
-   npx --yes @workjournal/cli login finish <CODE>
+   npx --yes @workjournal/cli auth login finish <CODE>
    ```
 
 5. On success the CLI prints "Authenticated successfully!" and writes credentials to `~/.workjournal/credentials.json`. Confirm the login to the user. If the command exits non-zero, surface the error message verbatim and suggest re-running `login` to start over.
@@ -179,7 +152,6 @@ Authenticate with the Workjournal API. The flow is two phases — *start* (print
 **Notes:**
 - The code expires 5 minutes after `start` and is single-use. If the user delays too long, run `start` again to get a fresh URL.
 - This flow does not require a browser on the same machine as the assistant — the user can open the URL on any device. It works equally well in SSH sessions, dev containers, and CI.
-- In Claude.ai web and Cowork sandboxes, `~/.workjournal/credentials.json` does not persist between conversations. Those environments should use the Workjournal MCP server (`@workjournal/mcp-server`) instead, which stores credentials in the MCP client config.
 
 ### `init`
 
@@ -188,52 +160,33 @@ Initialize Workjournal for the current session.
 1. If no stored credentials exist, run the `login` flow first.
 2. List available journals:
    ```sh
-   curl -s "$API_URL/v1/journals" -H "Authorization: Bearer $TOKEN"
+   npx --yes @workjournal/cli journals list --json
    ```
 3. Ask the user to select a journal or create a new one.
 4. To create a new journal:
    ```sh
-   curl -s -X POST "$API_URL/v1/journals" \
-     -H "Authorization: Bearer $TOKEN" \
-     -H "Content-Type: application/json" \
-     -d '{"name": "Journal Name", "description": "Optional description"}'
+   npx --yes @workjournal/cli journals new "Journal Name" --json
    ```
-5. Remember the selected journal for the remainder of this conversation.
+5. Select the journal:
+   ```sh
+   npx --yes @workjournal/cli journals select <JOURNAL_ID>
+   ```
+6. Confirm the selection to the user.
 
 ### `help`
 
 Print the following command reference:
 
+```text
+/workjournal                          Write a new entry (auto-title from conversation)
+/workjournal <title>                  Write a new entry with an explicit title
+/workjournal search <query>           Search entries by keyword
+/workjournal last [N]                 Show the last N entries (default 1)
+/workjournal check                    Find entries relevant to current conversation
+/workjournal login                    Authenticate with Workjournal
+/workjournal init                     Initialize session and select journal
+/workjournal help                     Print this help message
 ```
-/journal                          Write a new entry (auto-title from conversation)
-/journal <title>                  Write a new entry with an explicit title
-/journal search <query>           Search entries by keyword
-/journal last [N]                 Show the last N entries (default 1)
-/journal check                    Find entries relevant to current conversation
-/journal login                    Authenticate with Workjournal
-/journal init                     Initialize session and select journal
-/journal help                     Print this help message
-```
-
----
-
-## API Reference
-
-Base URL: `https://api.workjournal.pro`
-
-All endpoints require `Authorization: Bearer <token>` header.
-
-| Method | Endpoint | Body / Query | Description |
-|--------|----------|-------------|-------------|
-| GET | `/v1/journals` | — | List journals |
-| GET | `/v1/journals/:id` | — | Get journal details |
-| POST | `/v1/journals` | `{"name", "description?"}` | Create journal |
-| GET | `/v1/journals/:id/entries` | `?limit=N&offset=N` | List entries |
-| POST | `/v1/journals/:id/entries` | `{"summary", "what_changed", "client?"}` | Create entry |
-| GET | `/v1/journals/:id/entries/search` | `?q=query` | Search entries |
-| POST | `/v1/auth/refresh` | `{"refresh_token"}` | Refresh access token |
-
-List endpoints return: `{"data": [...], "total": N, "offset": N, "limit": N}`
 
 ---
 
@@ -243,4 +196,4 @@ List endpoints return: `{"data": [...], "total": N, "offset": N, "limit": N}`
 - Keep summaries concise but informative.
 - When displaying multiple entries, use clear visual separation (headings or horizontal rules).
 - For dates, use a human-readable format (e.g., "March 15, 2026").
-- When writing entries, be thorough in `what_changed` -- future you will thank present you.
+- When writing entries, be thorough in `what_changed` — future you will thank present you.
