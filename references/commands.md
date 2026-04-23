@@ -1,6 +1,6 @@
 # Workjournal Command Reference
 
-The skill is a thin shell over the `workjournal` CLI. A small set of invocations are handled as *agent shortcuts* (they need the agent to synthesise something); everything else is a verbatim CLI passthrough. See `SKILL.md` for the dispatch logic.
+The skill is a thin shell over the `workjournal` CLI (0.4.0+, slug-based). A small set of invocations are handled as *agent shortcuts* (they need the agent to synthesise something or look up the active selection); everything else is a verbatim CLI passthrough. See `SKILL.md` for the dispatch logic.
 
 ## Agent shortcuts
 
@@ -8,44 +8,74 @@ The skill is a thin shell over the `workjournal` CLI. A small set of invocations
 |---|---|
 | `/workjournal` | Write a new entry (title auto-generated from the conversation) |
 | `/workjournal <title>` | Write a new entry with an explicit title |
-| `/workjournal search <query>` | Alias for `workjournal journal entries search` |
-| `/workjournal last [N]` | Alias for `workjournal journal entries last` — full-body view |
+| `/workjournal search <query>` | Resolve active selection, then call `workjournal entries search <ws> <j> <query>` |
+| `/workjournal last [N]` | Resolve active selection, then call `workjournal entries last <ws> <j> [N]` — full body |
 | `/workjournal check` | Orchestrates 2–4 search calls based on the current conversation |
 | `/workjournal login` | Two-phase browser OAuth (CLI can't run both phases unattended) |
 | `/workjournal help` | Print command reference |
 
 ## CLI passthrough
 
-Any `/workjournal <first-word> …` where the first word is `journal`, `journals`, `auth`, or `config` is run verbatim as `workjournal <args>` (with `--json` appended for data-producing commands).
+Any `/workjournal <first-word> …` where the first word is `workspaces`, `journal`, `journals`, `entries`, `shares`, `invites`, `export`, `auth`, or `config` is run verbatim as `workjournal <args>` (with `--json` appended for data-producing commands).
 
-### Selected journal (`/workjournal journal …`)
+### Workspaces (`/workjournal workspaces …`)
+
+| Command | Description |
+|---|---|
+| `workspaces list` | List workspaces you belong to |
+| `workspaces get <ws>` | Show details of a workspace |
+| `workspaces new <name> [--slug <slug>]` | Create a workspace |
+| `workspaces select <ws>` | Set active workspace in project-config |
+
+### Selected journal (`/workjournal journal`)
 
 | Command | Description |
 |---|---|
 | `journal` | Show selected journal details |
-| `journal entries [list]` | List entries (slim — no body) |
-| `journal entries last [N]` | Last N entries with full body |
-| `journal entries get <index>` | Fetch a single entry by index |
-| `journal entries write -s <summary> -b <body>` | Create an entry |
-| `journal entries delete <index>` | Delete an entry (destructive — skill confirms first) |
-| `journal entries search <query>` | Search entries |
-| `journal shares [list]` | List members |
-| `journal shares delete <email>` | Remove a member (destructive) |
-| `journal invites [list]` | List invitations |
-| `journal invites new <email>` | Invite a collaborator |
-| `journal invites delete <id>` | Revoke an invitation (destructive) |
-| `journal export [-f json\|md\|csv] [-p <path>]` | Export journal data |
+
+The old `journal entries …` / `journal shares …` etc. forms are gone. Use the top-level resource verbs below with explicit `<ws> <j>` positionals.
 
 ### Manage journals (`/workjournal journals …`)
 
 | Command | Description |
 |---|---|
-| `journals list` | List journals you have access to |
-| `journals new <name>` | Create a new journal |
-| `journals select <id>` | Set active journal for this machine |
-| `journals delete <id>` | Delete a journal (destructive) |
-| `journals <id>` | Show details of a specific journal |
-| `journals <id> <resource> <verb>` | Same as `/workjournal journal …` against an explicit journal ID |
+| `journals list [<ws>]` | List journals in workspace (defaults to selected) |
+| `journals get <ws> <j>` | Show details of a journal |
+| `journals new <ws> <name> [--slug <slug>]` | Create a journal |
+| `journals select <ws> <j>` | Set active journal in project-config |
+| `journals delete <ws> <j>` | Delete a journal (destructive) |
+
+### Entries (`/workjournal entries …`)
+
+| Command | Description |
+|---|---|
+| `entries list <ws> <j>` | List entries (slim — no body) |
+| `entries last <ws> <j> [N]` | Last N entries with full body |
+| `entries get <ws> <j> <index>` | Fetch a single entry by index |
+| `entries write <ws> <j> -s <summary> -b <body>` | Create an entry |
+| `entries delete <ws> <j> <index>` | Delete an entry (destructive) |
+| `entries search <ws> <j> <query>` | Search entries |
+
+### Shares — members (`/workjournal shares …`)
+
+| Command | Description |
+|---|---|
+| `shares list <ws> <j>` | List members |
+| `shares delete <ws> <j> <email>` | Remove a member (destructive — CLI resolves email to user_id) |
+
+### Invites (`/workjournal invites …`)
+
+| Command | Description |
+|---|---|
+| `invites list <ws> <j>` | List pending invitations |
+| `invites new <ws> <j> <email>` | Invite a collaborator |
+| `invites delete <ws> <j> <invitationId>` | Revoke an invitation (destructive) |
+
+### Export (`/workjournal export …`)
+
+| Command | Description |
+|---|---|
+| `export <ws> <j> [-f json\|md\|csv] [-p <path>]` | Export journal data |
 
 ### Auth (`/workjournal auth …`)
 
@@ -62,27 +92,42 @@ Any `/workjournal <first-word> …` where the first word is `journal`, `journals
 
 | Command | Description |
 |---|---|
-| `config show` | Show resolved config (project + global) |
+| `config show` | Show resolved config (project + global), including the selected workspace + journal |
 
 ## Destructive guardrail
 
-Before running any of the four destructive patterns, the skill prints the resolved command and waits for the user to confirm:
+Before running any of these destructive patterns, the skill prints the resolved command and waits for the user to confirm:
 
-- `journal entries delete <index>`
-- `journal shares delete <email>`
-- `journal invites delete <id>`
-- `journals delete <id>`
+- `entries delete <ws> <j> <index>`
+- `shares delete <ws> <j> <email>`
+- `invites delete <ws> <j> <id>`
+- `journals delete <ws> <j>`
 
-The explicit-id form is also caught (`journals <id> entries delete …`, etc.).
+## Selection resolution
+
+The shortcuts that operate on entries (write, search, last, check) need a `<ws>` + `<j>` pair. The skill resolves them by parsing the output of `workjournal config show`, which prints lines like:
+
+```
+Project config:
+  Path: /path/to/.workjournal
+  Workspace: acme
+  Journal:   engineering
+Global config:
+  Workspace: acme
+  Journal:   engineering
+```
+
+Project values take precedence over global values. If neither produces both slugs, the skill tells the user how to set them with `workjournal workspaces select` + `workjournal journals select`.
 
 ## Setup
 
 There's no `init` shortcut — walk new users through it explicitly:
 
 1. `/workjournal login` — browser OAuth, writes credentials.
-2. `/workjournal journals list` — see existing journals.
-3. `/workjournal journals new "<name>"` — create one if needed.
-4. `/workjournal journals select <id>` — make it the default.
+2. `/workjournal workspaces list` — see what workspaces they belong to.
+3. `/workjournal journals list <ws>` — see existing journals.
+4. `/workjournal journals new <ws> "<name>"` — create one if needed.
+5. `/workjournal journals select <ws> <j>` — make it the default.
 
 ## Authentication
 
