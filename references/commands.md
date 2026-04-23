@@ -1,6 +1,6 @@
 # Workjournal Command Reference
 
-The skill is a thin shell over the `workjournal` CLI (0.4.0+, slug-based). A small set of invocations are handled as *agent shortcuts* (they need the agent to synthesise something or look up the active selection); everything else is a verbatim CLI passthrough. See `SKILL.md` for the dispatch logic.
+The skill is a thin shell over the `workjournal` CLI (0.5.0+, slug-based). A small set of invocations are handled as *agent shortcuts* — picker menus and entry-orchestration that need either user interaction or context the CLI doesn't have. Everything else is a verbatim CLI passthrough. See `SKILL.md` for the dispatch logic.
 
 ## Agent shortcuts
 
@@ -11,12 +11,14 @@ The skill is a thin shell over the `workjournal` CLI (0.4.0+, slug-based). A sma
 | `/workjournal search <query>` | Resolve active selection, then call `workjournal entries search <ws> <j> <query>` |
 | `/workjournal last [N]` | Resolve active selection, then call `workjournal entries last <ws> <j> [N]` — full body |
 | `/workjournal check` | Orchestrates 2–4 search calls based on the current conversation |
+| `/workjournal workspaces` | Numbered picker for switching the active workspace |
+| `/workjournal journals` | Numbered picker (with substring filter) for journals; pick → submenu (select / delete / rename / change url) |
 | `/workjournal login` | Two-phase browser OAuth (CLI can't run both phases unattended) |
 | `/workjournal help` | Print command reference |
 
 ## CLI passthrough
 
-Any `/workjournal <first-word> …` where the first word is `workspaces`, `journal`, `journals`, `entries`, `shares`, `invites`, `export`, `auth`, or `config` is run verbatim as `workjournal <args>` (with `--json` appended for data-producing commands).
+When the first word + sub maps to a real CLI invocation (per the dispatch table in `SKILL.md`), the skill runs `workjournal <args>` verbatim — with `--json` appended for data-producing commands.
 
 ### Workspaces (`/workjournal workspaces …`)
 
@@ -24,8 +26,9 @@ Any `/workjournal <first-word> …` where the first word is `workspaces`, `journ
 |---|---|
 | `workspaces list` | List workspaces you belong to |
 | `workspaces get <ws>` | Show details of a workspace |
-| `workspaces new <name> [--slug <slug>]` | Create a workspace |
 | `workspaces select <ws>` | Set active workspace in project-config |
+
+(There is no `workspaces new` from the CLI — workspace creation is API-only until the paid-tier signup flow ships.)
 
 ### Selected journal (`/workjournal journal`)
 
@@ -43,6 +46,8 @@ The old `journal entries …` / `journal shares …` etc. forms are gone. Use th
 | `journals get <ws> <j>` | Show details of a journal |
 | `journals new <ws> <name> [--slug <slug>]` | Create a journal |
 | `journals select <ws> <j>` | Set active journal in project-config |
+| `journals rename <ws> <j> <newName>` | Change the human name (slug stays) |
+| `journals set-slug <ws> <j> <newSlug>` | Change the URL slug (breaks existing links — skill warns and confirms) |
 | `journals delete <ws> <j>` | Delete a journal (destructive) |
 
 ### Entries (`/workjournal entries …`)
@@ -96,12 +101,13 @@ The old `journal entries …` / `journal shares …` etc. forms are gone. Use th
 
 ## Destructive guardrail
 
-Before running any of these destructive patterns, the skill prints the resolved command and waits for the user to confirm:
+Before running any of these patterns, the skill prints the resolved command and waits for the user to confirm:
 
 - `entries delete <ws> <j> <index>`
 - `shares delete <ws> <j> <email>`
 - `invites delete <ws> <j> <id>`
 - `journals delete <ws> <j>`
+- `journals set-slug <ws> <j> <newSlug>` — not strictly destructive, but old URLs return 404 immediately, so the skill warns and confirms before running.
 
 ## Selection resolution
 
@@ -117,17 +123,16 @@ Global config:
   Journal:   engineering
 ```
 
-Project values take precedence over global values. If neither produces both slugs, the skill tells the user how to set them with `workjournal workspaces select` + `workjournal journals select`.
+Project values take precedence over global values. If neither produces both slugs, the skill points the user at `/workjournal journals` to pick one.
 
 ## Setup
 
 There's no `init` shortcut — walk new users through it explicitly:
 
 1. `/workjournal login` — browser OAuth, writes credentials.
-2. `/workjournal workspaces list` — see what workspaces they belong to.
-3. `/workjournal journals list <ws>` — see existing journals.
-4. `/workjournal journals new <ws> "<name>"` — create one if needed.
-5. `/workjournal journals select <ws> <j>` — make it the default.
+2. `/workjournal workspaces` — pick the active workspace (interactive picker).
+3. `/workjournal journals new <ws> "<name>"` — create a journal if they have none.
+4. `/workjournal journals` — pick the new journal as active (interactive picker).
 
 ## Authentication
 

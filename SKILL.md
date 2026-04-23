@@ -4,10 +4,10 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored at ~/.workjournal/credentials.json.
 metadata:
   author: Venture Squad LTD
-  version: "0.9"
+  version: "1.0"
 ---
 
-You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive a multi-step interactive flow).
+You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
 
 **Never call MCP tools for journal operations.** This skill always runs the CLI. The MCP server exists for other clients (Claude Desktop, ChatGPT, Perplexity) that don't load skills.
 
@@ -17,12 +17,16 @@ The user invoked: `/workjournal {args}`
 
 Split `{args}` on the first whitespace to get `keyword` and the remainder. Route by `keyword`:
 
-| First word | Behaviour |
-|---|---|
-| *(empty)* | **Shortcut** — write entry with an auto-generated title |
-| `search`, `last`, `check`, `login`, `help` | **Shortcut** — see sections below |
-| `workspaces`, `journal`, `journals`, `entries`, `shares`, `invites`, `export`, `auth`, `config` | **CLI passthrough** — run `workjournal {args}` verbatim |
-| anything else | **Shortcut** — write entry, using `{args}` as the title |
+| First word | Sub | Behaviour |
+|---|---|---|
+| *(empty)* | — | **Shortcut** — write entry with an auto-generated title |
+| `search`, `last`, `check`, `login`, `help` | — | **Shortcut** — see sections below |
+| `workspaces` | *(none)* | **Shortcut** — workspace picker (see below) |
+| `workspaces` | `list` / `get` / `select` | **CLI passthrough** |
+| `journals` | *(none)* | **Shortcut** — journal picker (see below) |
+| `journals` | `list` / `get` / `new` / `delete` / `select` / `rename` / `set-slug` | **CLI passthrough** |
+| `journal`, `entries`, `shares`, `invites`, `export`, `auth`, `config` | any | **CLI passthrough** — run `workjournal {args}` verbatim |
+| anything else | — | **Shortcut** — write entry, using `{args}` as the title |
 
 ## CLI invocation
 
@@ -54,7 +58,7 @@ npx --yes @workjournal/cli config show
 
 Parse the output for `Workspace:` and `Journal:` lines. Use the project-config values if present; otherwise fall back to global-config values. If neither produces both slugs, tell the user:
 
-*"No journal selected. Run `/workjournal workspaces list` to find your workspace, then `/workjournal journals select <ws> <j>` to set the default."*
+*"No journal selected. Run `/workjournal journals` to pick one."*
 
 Once resolved, reuse the same slugs across the rest of the skill invocation — don't re-query.
 
@@ -110,6 +114,72 @@ Find past entries relevant to the current conversation. The CLI has no native "c
 5. Present the top results, each with a one-line "why this might be relevant" annotation tied to the matched term.
 6. If nothing lands, say so briefly — don't invent relevance.
 
+### `workspaces` (no further args) — workspace picker
+
+An interactive picker for switching the active workspace. Drives a single round-trip through the user's chat: render a numbered list, wait for a number, run `select`.
+
+1. Auth precheck.
+2. Fetch the list:
+   ```sh
+   npx --yes @workjournal/cli workspaces list --json
+   ```
+3. Read the current active workspace by parsing `workjournal config show` (the `Workspace:` line under either Project or Global).
+4. Render a numbered list to the user. Use `→` to mark the current selection. Example:
+   ```text
+   Workspaces:
+     [1] → acme               (Acme Inc — owner)
+     [2]   personal           (Personal — owner)
+
+   Reply with a number to select.
+   ```
+5. **Wait for the user's next message.** Parse it as the picked number.
+6. Resolve the chosen workspace's slug, then run:
+   ```sh
+   npx --yes @workjournal/cli workspaces select <slug>
+   ```
+7. Confirm: *"Active workspace: `<slug>`."*
+
+If the list is empty (which shouldn't happen — every user has at least one), surface the error and stop.
+
+### `journals` (no further args) — journal picker
+
+Interactive picker for the active workspace's journals, with a substring filter and a four-action submenu per journal.
+
+1. Auth precheck. Resolve the active workspace via `config show`. If no active workspace is set, run the workspace picker first (or tell the user to run `/workjournal workspaces`).
+2. Fetch the journals:
+   ```sh
+   npx --yes @workjournal/cli journals list <ws> --json
+   ```
+3. Read the current active journal from `config show` (the `Journal:` line).
+4. Render a numbered list with `slug` and `name`. Mark the current journal with `→`. Example:
+   ```text
+   Journals in acme:
+     [1] → engineering        (Engineering Notes)
+     [2]   product            (Product Decisions)
+     [3]   ops                (Ops Runbook)
+
+   Reply with a number to pick a journal, or type a substring to filter.
+   ```
+5. **Wait for the user's reply.**
+   - If the reply parses as a number that maps to a row, that journal is picked — go to step 6.
+   - Otherwise treat the reply as a substring filter. Re-render the list filtered to journals where `slug` or `name` contains the substring (case-insensitive). Show a fresh numbered list and prompt again.
+   - Loop step 5 until a number is picked or the user says "cancel".
+6. Render the submenu:
+   ```text
+   <ws>/<slug> — what next?
+     [1] select         — make this the active journal
+     [2] delete         — destructive, will ask to confirm
+     [3] rename         — change the human name (slug stays)
+     [4] change url     — change the slug (breaks existing links)
+   ```
+7. **Wait for the user's reply.** Resolve the action:
+   - **select** → run `workjournal journals select <ws> <slug>`. Confirm: *"Active journal: `<ws>/<slug>`."*
+   - **delete** → confirm again with the user (*"Delete `<ws>/<slug>` and all its entries? This cannot be undone."*). If confirmed, run `workjournal journals delete <ws> <slug>`.
+   - **rename** → ask: *"New name?"*. On reply, run `workjournal journals rename <ws> <slug> "<newName>" --json`. Confirm with the new name.
+   - **change url** → warn explicitly: *"Changing the slug breaks any existing links — old URLs to `<ws>/<slug>` will start returning 404. New slug?"*. After receiving `<newSlug>`, ask for explicit confirmation: *"About to change `<ws>/<slug>` to `<ws>/<newSlug>`. This will break old links. Confirm?"*. Only run `workjournal journals set-slug <ws> <slug> <newSlug> --json` on an affirmative reply; otherwise abort and tell the user the slug change was cancelled.
+
+If the journal list is empty, suggest `/workjournal journals new <ws> "<name>"` to create one.
+
 ### `login`
 
 Two-phase interactive login. The CLI can't run both phases unattended because the user has to open a browser and paste a code back.
@@ -159,13 +229,15 @@ Print the reference block below and stop:
 /workjournal search <query>                     Search entries by keyword
 /workjournal last [N]                           Show the last N entries (default 1, full body)
 /workjournal check                              Find entries relevant to the current conversation
+/workjournal workspaces                         Interactive workspace picker
+/workjournal journals                           Interactive journal picker (select / delete / rename / change url)
 /workjournal login                              Authenticate with Workjournal (two-phase browser flow)
 
 Passthrough — run the CLI command verbatim:
-  /workjournal workspaces list|get|new|select   Manage workspaces
+  /workjournal workspaces list|get|select       Manage workspaces
   /workjournal journal                          Show selected journal details
-  /workjournal journals list|get|new|delete|select   Manage journals (most take <ws> <j>)
-  /workjournal entries list|write|last|get|delete|search <ws> <j> …   Entries within a journal
+  /workjournal journals list|get|new|delete|select|rename|set-slug   Manage journals (most take <ws> <j>)
+  /workjournal entries list|write|last|get|delete|search <ws> <j> …  Entries within a journal
   /workjournal shares list|delete <ws> <j> …    Members of a journal
   /workjournal invites list|new|delete <ws> <j> …  Pending invitations
   /workjournal export <ws> <j> [-f json|md|csv] [-p <path>]
@@ -175,14 +247,14 @@ Passthrough — run the CLI command verbatim:
 
 ## CLI passthrough
 
-When the first word is `workspaces`, `journal`, `journals`, `entries`, `shares`, `invites`, `export`, `auth`, or `config`:
+When the routing rules above resolve to passthrough:
 
 1. **Destructive guard** — if the remaining args name a destructive operation, *show the resolved command to the user and ask for confirmation before running it*. The destructive patterns are:
    - `entries delete <ws> <j> <index>`
    - `shares delete <ws> <j> <email>`
    - `invites delete <ws> <j> <id>`
    - `journals delete <ws> <j>`
-   - `workspaces delete <ws>` (if/when added)
+   - `journals set-slug <ws> <j> <newSlug>` — not strictly destructive, but old URLs 404 immediately, so warn and confirm.
 
    Example confirmation: *"About to run `workjournal entries delete acme engineering 4` — this removes the entry permanently. Confirm?"* If the user doesn't confirm, stop.
 
@@ -190,7 +262,7 @@ When the first word is `workspaces`, `journal`, `journals`, `entries`, `shares`,
    ```sh
    npx --yes @workjournal/cli {args} --json
    ```
-   For mutation commands where `--json` changes output format helpfully (write, new), include it. For commands with no meaningful JSON representation (`auth logout`, `config show`), run without `--json`.
+   For mutation commands where `--json` changes output format helpfully (write, new, rename, set-slug), include it. For commands with no meaningful JSON representation (`auth logout`, `config show`), run without `--json`.
 
 3. Parse the response. Format it for the user — table for lists, single-record view for gets, confirmation line for mutations.
 
@@ -207,19 +279,20 @@ When the first word is `workspaces`, `journal`, `journals`, `entries`, `shares`,
 | `/workjournal workspaces list` | `workjournal workspaces list --json` |
 | `/workjournal journals list acme` | `workjournal journals list acme --json` |
 | `/workjournal journals new acme "Engineering"` | `workjournal journals new acme "Engineering" --json` |
+| `/workjournal journals rename acme staging "Staging Notes"` | `workjournal journals rename acme staging "Staging Notes" --json` |
+| `/workjournal journals set-slug acme staging staging-notes` | *warn + confirm* → `workjournal journals set-slug acme staging staging-notes --json` |
 | `/workjournal journals delete acme staging` | *confirm* → `workjournal journals delete acme staging` |
 | `/workjournal auth whoami` | `workjournal auth whoami` |
 | `/workjournal config show` | `workjournal config show` |
 
 ## Setup guidance
 
-There's no `/workjournal init` shortcut — it conflated auth, workspace creation, journal creation, and selection into one opaque flow. If the user needs to get set up from scratch, walk them through it explicitly:
+If the user needs to get set up from scratch, walk them through it explicitly:
 
 1. `/workjournal login` — browser OAuth, writes credentials.
-2. `/workjournal workspaces list` — see what workspaces they belong to (every signed-in user has at least their personal one).
-3. `/workjournal journals list <workspaceSlug>` — see existing journals in that workspace.
-4. `/workjournal journals new <workspaceSlug> "<name>"` — create a journal if they have none. Slug is derived from name; `--slug <slug>` overrides.
-5. `/workjournal journals select <workspaceSlug> <journalSlug>` — make it the default for this machine.
+2. `/workjournal workspaces` — pick the active workspace (every signed-in user has at least their personal one).
+3. `/workjournal journals new <ws> "<name>"` — create a journal if they have none. Slug is derived from name; `--slug <slug>` overrides.
+4. `/workjournal journals` — pick the new journal as active.
 
 Afterwards `/workjournal` (no args) will write to that journal.
 
