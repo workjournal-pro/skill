@@ -146,4 +146,4 @@ Credentials are stored at `~/.workjournal/credentials.json`:
 }
 ```
 
-Use `/workjournal login` or `bash skills/journal/scripts/login.sh` to authenticate via browser-based OAuth. The CLI refreshes tokens automatically before each call.
+Use `/workjournal login` or `bash skills/workjournal/scripts/login.sh` to authenticate via browser-based OAuth. The CLI refreshes tokens automatically before each call.

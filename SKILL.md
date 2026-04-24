@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored at ~/.workjournal/credentials.json.
 metadata:
   author: Venture Squad LTD
-  version: "1.0"
+  version: "1.1"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -186,7 +186,7 @@ Two-phase interactive login. The CLI can't run both phases unattended because th
 
 1. **Start** — generate the PKCE-protected authorize URL:
    ```sh
-   bash skills/journal/scripts/login.sh start
+   bash skills/workjournal/scripts/login.sh start
    ```
    If the script isn't at that path (e.g. the skill is installed globally), fall back to:
    ```sh
@@ -206,7 +206,7 @@ Two-phase interactive login. The CLI can't run both phases unattended because th
 
 4. **Finish** with the code:
    ```sh
-   bash skills/journal/scripts/login.sh finish <CODE>
+   bash skills/workjournal/scripts/login.sh finish <CODE>
    ```
    Or fallback:
    ```sh
