@@ -57,7 +57,7 @@ The old `journal entries …` / `journal shares …` etc. forms are gone. Use th
 | `entries list <ws> <j>` | List entries (slim — no body) |
 | `entries last <ws> <j> [N]` | Last N entries with full body |
 | `entries get <ws> <j> <index>` | Fetch a single entry by index |
-| `entries write <ws> <j> -s <summary> -b <body>` | Create an entry |
+| `entries write <ws> <j> -t <title> -s <summary> -b <body>` | Create an entry (title required, ≤80 chars) |
 | `entries delete <ws> <j> <index>` | Delete an entry (destructive) |
 | `entries search <ws> <j> <query>` | Search entries |
 

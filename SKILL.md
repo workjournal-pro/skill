@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored at ~/.workjournal/credentials.json.
 metadata:
   author: Venture Squad LTD
-  version: "1.1"
+  version: "1.2"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -70,15 +70,17 @@ The default action when the first word isn't a recognised keyword. Writes a jour
 
 1. Run the auth precheck and the selection precheck. Capture `<ws>` and `<j>`.
 2. Review the conversation so far. Identify what work was performed — files touched, decisions made, bugs fixed, trade-offs accepted.
-3. If the user provided a title (`/workjournal Some title`), use it. Otherwise synthesise a concise 3–8 word title that captures the outcome, not the process.
-4. Create the entry:
+3. If the user provided a title (`/workjournal Some title`), use it. Otherwise synthesise a concise 3–8 word title (max 80 characters) that captures the **outcome**, not the process.
+4. Generate a paragraph-length summary alongside the title — title is for scanning, summary is what `last_entries` and search use to retrieve context.
+5. Create the entry:
    ```sh
    npx --yes @workjournal/cli entries write <ws> <j> \
-     -s "1–3 sentence summary including the title" \
+     -t "Concise outcome title (≤80 chars)" \
+     -s "1–3 sentence summary explaining what was done and why" \
      -b "Detailed markdown body: file paths, decisions, rationale, trade-offs" \
      --json
    ```
-5. Parse the JSON response and confirm with the user — quote the assigned index (`#N`) and summary line back.
+6. Parse the JSON response and confirm with the user — quote the assigned index (`#N`) and the title back.
 
 ### `search <query>`
 
