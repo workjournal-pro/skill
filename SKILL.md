@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored at ~/.workjournal/credentials.json.
 metadata:
   author: Venture Squad LTD
-  version: "1.2"
+  version: "1.3"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).

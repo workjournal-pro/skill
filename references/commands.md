@@ -43,6 +43,7 @@ The old `journal entries …` / `journal shares …` etc. forms are gone. Use th
 | Command | Description |
 |---|---|
 | `journals list [<ws>]` | List journals in workspace (defaults to selected) |
+| `journals list shared-with-me` | List journals shared into you from workspaces you don't own |
 | `journals get <ws> <j>` | Show details of a journal |
 | `journals new <ws> <name> [--slug <slug>]` | Create a journal |
 | `journals select <ws> <j>` | Set active journal in project-config |
