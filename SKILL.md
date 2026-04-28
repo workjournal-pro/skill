@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored at ~/.workjournal/credentials.json.
 metadata:
   author: Venture Squad LTD
-  version: "1.3"
+  version: "1.4"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -24,7 +24,8 @@ Split `{args}` on the first whitespace to get `keyword` and the remainder. Route
 | `workspaces` | *(none)* | **Shortcut** — workspace picker (see below) |
 | `workspaces` | `list` / `get` / `select` | **CLI passthrough** |
 | `journals` | *(none)* | **Shortcut** — journal picker (see below) |
-| `journals` | `list` / `get` / `new` / `delete` / `select` / `rename` / `set-slug` | **CLI passthrough** |
+| `journals` | `list` / `get` / `new` / `delete` / `select` / `rename` / `set-slug` / `assign-prompt` / `unassign-prompt` | **CLI passthrough** |
+| `prompts` | `list` / `new` / `get` / `update` / `delete` | **CLI passthrough** — Plus/Pro feature; surfaces tier-rejection errors verbatim from the API |
 | `journal`, `entries`, `shares`, `invites`, `export`, `auth`, `config` | any | **CLI passthrough** — run `workjournal {args}` verbatim |
 | anything else | — | **Shortcut** — write entry, using `{args}` as the title |
 
@@ -69,18 +70,19 @@ Once resolved, reuse the same slugs across the rest of the skill invocation — 
 The default action when the first word isn't a recognised keyword. Writes a journal entry summarising the current conversation.
 
 1. Run the auth precheck and the selection precheck. Capture `<ws>` and `<j>`.
-2. Review the conversation so far. Identify what work was performed — files touched, decisions made, bugs fixed, trade-offs accepted.
-3. If the user provided a title (`/workjournal Some title`), use it. Otherwise synthesise a concise 3–8 word title (max 80 characters) that captures the **outcome**, not the process.
-4. Generate a paragraph-length summary alongside the title — title is for scanning, summary is what `last_entries` and search use to retrieve context.
-5. Create the entry:
+2. **Fetch the journal's prompt before reviewing the conversation.** Run `npx --yes @workjournal/cli journals get <ws> <j> --json` and parse `prompt.body` from the response — it's always non-empty. The journal-fetch endpoint returns the system-default body whenever no custom prompt is assigned (Free always; Plus/Pro before the owner assigns one), and the assigned custom prompt's body otherwise — `prompt.source` distinguishes them, but you only need `prompt.body`. Treat `prompt.body` as the writing instruction for this journal: it dictates structure, voice, sections to include or skip. The next step's review is filtered through that lens. Why fetch first: prompts are per-journal and may have changed since the last session, so don't rely on memory.
+3. Review the conversation so far. Identify what work was performed — files touched, decisions made, bugs fixed, trade-offs accepted. Apply `prompt.body` from step 2 to shape the title, summary, and body.
+4. If the user provided a title (`/workjournal Some title`), use it. Otherwise synthesise a concise 3–8 word title (max 80 characters) that captures the **outcome**, not the process.
+5. Generate a paragraph-length summary alongside the title — title is for scanning, summary is what `last_entries` and search use to retrieve context.
+6. Create the entry:
    ```sh
    npx --yes @workjournal/cli entries write <ws> <j> \
      -t "Concise outcome title (≤80 chars)" \
      -s "1–3 sentence summary explaining what was done and why" \
-     -b "Detailed markdown body: file paths, decisions, rationale, trade-offs" \
+     -b "Detailed markdown body that follows the fetched prompt.body guidance" \
      --json
    ```
-6. Parse the JSON response and confirm with the user — quote the assigned index (`#N`) and the title back.
+7. Parse the JSON response and confirm with the user — quote the assigned index (`#N`) and the title back.
 
 ### `search <query>`
 
@@ -239,7 +241,10 @@ Passthrough — run the CLI command verbatim:
   /workjournal workspaces list|get|select       Manage workspaces
   /workjournal journal                          Show selected journal details
   /workjournal journals list|get|new|delete|select|rename|set-slug   Manage journals (most take <ws> <j>)
+  /workjournal journals assign-prompt <ws> <j> <slug>     Assign a workspace prompt to a journal
+  /workjournal journals unassign-prompt <ws> <j>          Unassign the journal's prompt
   /workjournal entries list|write|last|get|delete|search <ws> <j> …  Entries within a journal
+  /workjournal prompts list|new|get|update|delete <ws> …  Workspace prompts (Plus/Pro; parameters vary by command)
   /workjournal shares list|delete <ws> <j> …    Members of a journal
   /workjournal invites list|new|delete <ws> <j> …  Pending invitations
   /workjournal export <ws> <j> [-f json|md|csv] [-p <path>]
@@ -257,6 +262,7 @@ When the routing rules above resolve to passthrough:
    - `invites delete <ws> <j> <id>`
    - `journals delete <ws> <j>`
    - `journals set-slug <ws> <j> <newSlug>` — not strictly destructive, but old URLs 404 immediately, so warn and confirm.
+   - `prompts delete <ws> <slug>` — cascades unassignment from any journals using the prompt.
 
    Example confirmation: *"About to run `workjournal entries delete acme engineering 4` — this removes the entry permanently. Confirm?"* If the user doesn't confirm, stop.
 
@@ -284,6 +290,11 @@ When the routing rules above resolve to passthrough:
 | `/workjournal journals rename acme staging "Staging Notes"` | `workjournal journals rename acme staging "Staging Notes" --json` |
 | `/workjournal journals set-slug acme staging staging-notes` | *warn + confirm* → `workjournal journals set-slug acme staging staging-notes --json` |
 | `/workjournal journals delete acme staging` | *confirm* → `workjournal journals delete acme staging` |
+| `/workjournal prompts list acme` | `workjournal prompts list acme --json` |
+| `/workjournal prompts new acme "Project style" -b "Be concise."` | `workjournal prompts new acme "Project style" -b "Be concise." --json` |
+| `/workjournal prompts delete acme project-style` | *confirm* → `workjournal prompts delete acme project-style` |
+| `/workjournal journals assign-prompt acme engineering project-style` | `workjournal journals assign-prompt acme engineering project-style --json` |
+| `/workjournal journals unassign-prompt acme engineering` | `workjournal journals unassign-prompt acme engineering --json` |
 | `/workjournal auth whoami` | `workjournal auth whoami` |
 | `/workjournal config show` | `workjournal config show` |
 
