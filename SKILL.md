@@ -1,10 +1,10 @@
 ---
 name: workjournal
 description: Development journal for AI coding agents. Write entries capturing decisions and context, search past work, review recent entries, and manage workspaces/journals/members/invitations through the Workjournal CLI. Use when the user invokes /workjournal, asks to log what was done, or wants to search past decisions.
-compatibility: Requires Bash tool and internet access. Credentials stored at ~/.workjournal/credentials.json.
+compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.4"
+  version: "1.5"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -44,10 +44,10 @@ Append `--json` to any data-producing command so you get machine-readable output
 Before any shortcut or passthrough that needs auth, confirm credentials exist:
 
 ```sh
-cat ~/.workjournal/credentials.json 2>/dev/null
+npx --yes @workjournal/cli auth status
 ```
 
-If the file is missing, tell the user: *"No credentials found. Run `/workjournal login` to authenticate."* and stop. Otherwise proceed — the CLI refreshes expired tokens itself.
+If the command output contains `not authenticated` (case-insensitive), tell the user: *"No credentials found. Run `/workjournal login` to authenticate."* and stop. Otherwise proceed — the CLI refreshes expired tokens itself.
 
 ## Selection precheck (for write/search/last/check shortcuts)
 
@@ -217,7 +217,7 @@ Two-phase interactive login. The CLI can't run both phases unattended because th
    npx --yes @workjournal/cli auth login finish <CODE>
    ```
 
-5. On success the CLI writes credentials to `~/.workjournal/credentials.json` and prints "Authenticated successfully!". Confirm back. On non-zero exit, surface the error verbatim and suggest re-running `login` for a fresh code.
+5. On success the CLI writes credentials to the user config directory and prints "Authenticated successfully!" with the resolved path. Confirm back. On non-zero exit, surface the error verbatim and suggest re-running `login` for a fresh code.
 
 Notes:
 - The code expires 5 minutes after `start` and is single-use.

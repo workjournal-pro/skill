@@ -137,7 +137,7 @@ There's no `init` shortcut — walk new users through it explicitly:
 
 ## Authentication
 
-Credentials are stored at `~/.workjournal/credentials.json`:
+Credentials are stored in the user config directory (`~/.config/workjournal/credentials.json` on Linux/macOS, `%APPDATA%\workjournal\credentials.json` on Windows; override with `WORKJOURNAL_CONFIG_DIR`):
 
 ```json
 {
