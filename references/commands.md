@@ -62,12 +62,12 @@ The old `journal entries …` / `journal shares …` etc. forms are gone. Use th
 | `entries delete <ws> <j> <index>` | Delete an entry (destructive) |
 | `entries search <ws> <j> <query>` | Search entries |
 
-### Shares — members (`/workjournal shares …`)
+### Shares — contributors (`/workjournal shares …`)
 
 | Command | Description |
 |---|---|
-| `shares list <ws> <j>` | List members |
-| `shares delete <ws> <j> <email>` | Remove a member (destructive — CLI resolves email to user_id) |
+| `shares list <ws> <j>` | List contributors |
+| `shares delete <ws> <j> <email>` | Remove a contributor (destructive — CLI resolves email to user_id) |
 
 ### Invites (`/workjournal invites …`)
 

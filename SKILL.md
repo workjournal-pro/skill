@@ -1,10 +1,10 @@
 ---
 name: workjournal
-description: Development journal for AI coding agents. Write entries capturing decisions and context, search past work, review recent entries, and manage workspaces/journals/members/invitations through the Workjournal CLI. Use when the user invokes /workjournal, asks to log what was done, or wants to search past decisions.
+description: Development journal for AI coding agents. Write entries capturing decisions and context, search past work, review recent entries, and manage workspaces/journals/contributors/invitations through the Workjournal CLI. Use when the user invokes /workjournal, asks to log what was done, or wants to search past decisions.
 compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.6"
+  version: "1.7"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -245,7 +245,7 @@ Passthrough — run the CLI command verbatim:
   /workjournal journals unassign-prompt <ws> <j>          Unassign the journal's prompt
   /workjournal entries list|write|last|get|delete|search <ws> <j> …  Entries within a journal
   /workjournal prompts list|new|get|update|delete <ws> …  Workspace prompts (Plus/Pro; parameters vary by command)
-  /workjournal shares list|delete <ws> <j> …    Members of a journal
+  /workjournal shares list|delete <ws> <j> …    Contributors of a journal
   /workjournal invites list|new|delete <ws> <j> …  Pending invitations
   /workjournal export <ws> <j> [-f json|md|csv] [-p <path>]
   /workjournal auth login|logout|whoami|status
