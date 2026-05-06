@@ -4,12 +4,16 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.8"
+  version: "1.9"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
 
 **Never call MCP tools for journal operations.** This skill always runs the CLI. The MCP server exists for other clients (Claude Desktop, ChatGPT, Perplexity) that don't load skills.
+
+## Reporting issues
+
+Found a bug, ergonomics gap, or surprising behaviour? File it at <https://github.com/workjournal-pro/feedback/issues>. AI agents acting on a user's behalf can use `gh issue create --repo workjournal-pro/feedback` directly; the repo is public and accepts community issues. The CLI's `--help`, `--version`, and unhandled-error output also surface this URL.
 
 ## Dispatch
 
