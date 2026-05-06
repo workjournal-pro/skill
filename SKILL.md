@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.7"
+  version: "1.8"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -243,7 +243,7 @@ Passthrough — run the CLI command verbatim:
   /workjournal journals list|get|new|delete|select|rename|set-slug   Manage journals (most take <ws> <j>)
   /workjournal journals assign-prompt <ws> <j> <slug>     Assign a workspace prompt to a journal
   /workjournal journals unassign-prompt <ws> <j>          Unassign the journal's prompt
-  /workjournal entries list|write|last|get|delete|search <ws> <j> …  Entries within a journal
+  /workjournal entries list|write|last|get|update|delete|search <ws> <j> …  Entries within a journal
   /workjournal prompts list|new|get|update|delete <ws> …  Workspace prompts (Plus/Pro; parameters vary by command)
   /workjournal shares list|delete <ws> <j> …    Contributors of a journal
   /workjournal invites list|new|delete <ws> <j> …  Pending invitations
@@ -281,6 +281,7 @@ When the routing rules above resolve to passthrough:
 | User types | Skill runs |
 |---|---|
 | `/workjournal entries get acme engineering 5` | `workjournal entries get acme engineering 5 --json` |
+| `/workjournal entries update acme engineering 5 -t "Verified"` | `workjournal entries update acme engineering 5 -t "Verified" --json` |
 | `/workjournal shares list acme engineering` | `workjournal shares list acme engineering --json` |
 | `/workjournal invites new acme engineering alice@example.com` | `workjournal invites new acme engineering alice@example.com --json` |
 | `/workjournal export acme engineering -f md -p /tmp/out.md` | `workjournal export acme engineering -f md -p /tmp/out.md` |
