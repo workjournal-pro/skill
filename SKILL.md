@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.9"
+  version: "1.10"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -30,6 +30,7 @@ Split `{args}` on the first whitespace to get `keyword` and the remainder. Route
 | `journals` | *(none)* | **Shortcut** — journal picker (see below) |
 | `journals` | `list` / `get` / `new` / `delete` / `select` / `rename` / `set-slug` / `assign-prompt` / `unassign-prompt` | **CLI passthrough** |
 | `prompts` | `list` / `new` / `get` / `update` / `delete` | **CLI passthrough** — Plus/Pro feature; surfaces tier-rejection errors verbatim from the API |
+| `tags` | `list` / `new` / `get` / `update` / `delete` | **CLI passthrough** — Plus+ feature (Pattern D, issue #239); creation surfaces tier-rejection errors verbatim |
 | `journal`, `entries`, `shares`, `invites`, `export`, `auth`, `config` | any | **CLI passthrough** — run `workjournal {args}` verbatim |
 | anything else | — | **Shortcut** — write entry, using `{args}` as the title |
 
@@ -248,7 +249,10 @@ Passthrough — run the CLI command verbatim:
   /workjournal journals assign-prompt <ws> <j> <slug>     Assign a workspace prompt to a journal
   /workjournal journals unassign-prompt <ws> <j>          Unassign the journal's prompt
   /workjournal entries list|write|last|get|update|delete|search <ws> <j> …  Entries within a journal
+  /workjournal entries write <ws> <j> -t … -s … -b … [--tags a,b,c]  Optional comma-separated tag names (Plus+)
+  /workjournal entries update <ws> <j> <idx> [--tags a,b,c]   Replace the tag set (--tags "" clears)
   /workjournal prompts list|new|get|update|delete <ws> …  Workspace prompts (Plus/Pro; parameters vary by command)
+  /workjournal tags list|new|get|update|delete <ws> …  Workspace/journal tag registry (Plus+; create gated, edit/delete not)
   /workjournal shares list|delete <ws> <j> …    Contributors of a journal
   /workjournal invites list|new|delete <ws> <j> …  Pending invitations
   /workjournal export <ws> <j> [-f json|md|csv] [-p <path>]
@@ -267,6 +271,7 @@ When the routing rules above resolve to passthrough:
    - `journals delete <ws> <j>`
    - `journals set-slug <ws> <j> <newSlug>` — not strictly destructive, but old URLs 404 immediately, so warn and confirm.
    - `prompts delete <ws> <slug>` — cascades unassignment from any journals using the prompt.
+   - `tags delete <ws> <name>` — cascades to remove the tag from every entry that referenced it.
 
    Example confirmation: *"About to run `workjournal entries delete acme engineering 4` — this removes the entry permanently. Confirm?"* If the user doesn't confirm, stop.
 
@@ -300,6 +305,13 @@ When the routing rules above resolve to passthrough:
 | `/workjournal prompts delete acme project-style` | *confirm* → `workjournal prompts delete acme project-style` |
 | `/workjournal journals assign-prompt acme engineering project-style` | `workjournal journals assign-prompt acme engineering project-style --json` |
 | `/workjournal journals unassign-prompt acme engineering` | `workjournal journals unassign-prompt acme engineering --json` |
+| `/workjournal tags list acme` | `workjournal tags list acme --json` |
+| `/workjournal tags list acme --journal engineering` | `workjournal tags list acme --journal engineering --json` |
+| `/workjournal tags new acme decision -d "Records a decision"` | `workjournal tags new acme decision -d "Records a decision" --json` |
+| `/workjournal tags update acme decision -d "Refined description"` | `workjournal tags update acme decision -d "Refined description" --json` |
+| `/workjournal tags delete acme deprecated-tag` | *confirm* → `workjournal tags delete acme deprecated-tag` |
+| `/workjournal entries write acme engineering -t "..." -s "..." -b "..." --tags decision,blocker` | `workjournal entries write acme engineering -t "..." -s "..." -b "..." --tags decision,blocker --json` |
+| `/workjournal entries update acme engineering 5 --tags ""` | `workjournal entries update acme engineering 5 --tags "" --json` |
 | `/workjournal auth whoami` | `workjournal auth whoami` |
 | `/workjournal config show` | `workjournal config show` |
 
