@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.11"
+  version: "1.12"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -153,30 +153,36 @@ An interactive picker for switching the active workspace. Drives a single round-
 
 If the list is empty (which shouldn't happen — every user has at least one), surface the error and stop.
 
+Note: journals shared with the user from other workspaces don't appear here — only the user's own workspaces do. Direct them to `/workjournal journals` instead; the journals picker surfaces a `(shared with me)` row that pivots into the shared sub-picker.
+
 ### `journals` (no further args) — journal picker
 
-Interactive picker for the active workspace's journals, with a substring filter and a four-action submenu per journal.
+Interactive picker for the active workspace's journals, with a substring filter, a per-journal submenu, and a footer row that pivots into journals shared with you from other workspaces.
 
 1. Auth precheck. Resolve the active workspace via `config show`. If no active workspace is set, run the workspace picker first (or tell the user to run `/workjournal workspaces`).
-2. Fetch the journals:
+2. Fetch both the active workspace's journals AND the shared-with-me list. The second call is cheap (one round-trip) and lets us surface invitations the user has already accepted in the web app:
    ```sh
    npx --yes @workjournal/cli journals list <ws> --json
+   npx --yes @workjournal/cli journals list shared-with-me --json
    ```
 3. Read the current active journal from `config show` (the `Journal:` line).
-4. Render a numbered list with `slug` and `name`. Mark the current journal with `→`. Example:
+4. Render a numbered list with `slug` and `name`. Mark the current journal with `→`. If the shared list is non-empty, append a footer row labelled `(shared with me — K journals)` after the workspace journals. Example:
    ```text
    Journals in acme:
      [1] → engineering        (Engineering Notes)
      [2]   product            (Product Decisions)
      [3]   ops                (Ops Runbook)
+     [4]   (shared with me — 2 journals)
 
    Reply with a number to pick a journal, or type a substring to filter.
    ```
+   Omit row [4] entirely when the shared list is empty — don't surface a dead-end.
 5. **Wait for the user's reply.**
-   - If the reply parses as a number that maps to a row, that journal is picked — go to step 6.
-   - Otherwise treat the reply as a substring filter. Re-render the list filtered to journals where `slug` or `name` contains the substring (case-insensitive). Show a fresh numbered list and prompt again.
+   - If the reply parses as a number that maps to a workspace-journal row, that journal is picked — go to step 6.
+   - If the reply parses as the footer row's number, go to step 7 (shared sub-picker).
+   - Otherwise treat the reply as a substring filter. Re-render the workspace list filtered to journals where `slug` or `name` contains the substring (case-insensitive). Show a fresh numbered list and prompt again. The shared footer is excluded from substring filtering — it stays as the last row.
    - Loop step 5 until a number is picked or the user says "cancel".
-6. Render the submenu:
+6. **Workspace-journal submenu.** Render:
    ```text
    <ws>/<slug> — what next?
      [1] select         — make this the active journal
@@ -184,13 +190,24 @@ Interactive picker for the active workspace's journals, with a substring filter 
      [3] rename         — change the human name (slug stays)
      [4] change url     — change the slug (breaks existing links)
    ```
-7. **Wait for the user's reply.** Resolve the action:
+   Wait for the user's reply. Resolve the action:
    - **select** → run `workjournal journals select <ws> <slug>`. Confirm: *"Active journal: `<ws>/<slug>`."*
    - **delete** → confirm again with the user (*"Delete `<ws>/<slug>` and all its entries? This cannot be undone."*). If confirmed, run `workjournal journals delete <ws> <slug>`.
    - **rename** → ask: *"New name?"*. On reply, run `workjournal journals rename <ws> <slug> "<newName>" --json`. Confirm with the new name.
    - **change url** → warn explicitly: *"Changing the slug breaks any existing links — old URLs to `<ws>/<slug>` will start returning 404. New slug?"*. After receiving `<newSlug>`, ask for explicit confirmation: *"About to change `<ws>/<slug>` to `<ws>/<newSlug>`. This will break old links. Confirm?"*. Only run `workjournal journals set-slug <ws> <slug> <newSlug> --json` on an affirmative reply; otherwise abort and tell the user the slug change was cancelled.
+7. **Shared-with-me sub-picker.** Render the rows from the shared listing. Use `<workspace>/<slug>` as the label since journal slugs can collide across workspaces — and this is the disambiguator we'll use in the next step:
+   ```text
+   Shared with me:
+     [1]   acme/engineering
+     [2]   globex/notes
 
-If the journal list is empty, suggest `/workjournal journals new <ws> "<name>"` to create one.
+   Reply with a number to select.
+   ```
+   Wait for the user's reply. Only `select` is offered — the caller is a contributor, not an owner, so `delete`/`rename`/`change url` aren't valid actions. Resolve the action:
+   - Run `workjournal journals select <real-ws> <slug> --json` using the workspace slug from the row the user picked (e.g. `acme engineering`, not `shared-with-me engineering`). This avoids the slug-collision case entirely — the picker already disambiguated by showing `<ws>/<slug>`.
+   - Confirm: *"Active journal: `<real-ws>/<slug>`."* The persisted config holds the real workspace slug, which is what every downstream command reads.
+
+If the workspace journal list AND the shared list are both empty, suggest `/workjournal journals new <ws> "<name>"` to create one.
 
 ### `login`
 
@@ -242,13 +259,13 @@ Print the reference block below and stop:
 /workjournal last [N]                           Show the last N entries (default 1, full body)
 /workjournal check                              Find entries relevant to the current conversation
 /workjournal workspaces                         Interactive workspace picker
-/workjournal journals                           Interactive journal picker (select / delete / rename / change url)
+/workjournal journals                           Interactive journal picker (select / delete / rename / change url; pivots to shared-with-me sub-picker)
 /workjournal login                              Authenticate with Workjournal (two-phase browser flow)
 
 Passthrough — run the CLI command verbatim:
   /workjournal workspaces list|get|select       Manage workspaces
   /workjournal journal                          Show selected journal details
-  /workjournal journals list|get|new|delete|select|rename|set-slug   Manage journals (most take <ws> <j>)
+  /workjournal journals list|get|new|delete|select|rename|set-slug   Manage journals (most take <ws> <j>; `list` accepts `shared-with-me` as <ws>; `select` always takes a real workspace slug)
   /workjournal journals assign-prompt <ws> <j> <slug>     Assign a workspace prompt to a journal
   /workjournal journals unassign-prompt <ws> <j>          Unassign the journal's prompt
   /workjournal entries list|write|last|get|update|delete|search <ws> <j> …  Entries within a journal
@@ -333,6 +350,16 @@ If the user needs to get set up from scratch, walk them through it explicitly:
 4. `/workjournal journals` — pick the new journal as active.
 
 Afterwards `/workjournal` (no args) will write to that journal.
+
+### After accepting a journal invitation
+
+If the user accepted a journal invitation in the web app and is now back in their terminal / Claude session:
+
+1. `/workjournal journals` — the picker fetches both their workspace journals and the shared list. A `(shared with me — K journals)` footer row appears when K > 0; pick it to drill into the shared sub-picker.
+2. Pick the shared journal. The skill runs `workjournal journals select <real-ws> <j>` using the workspace slug shown in the sub-picker row, pinning it to config. No magic-slug resolution step — the row already disambiguated.
+3. From here `/workjournal` (no args), `/workjournal last`, `/workjournal search`, etc. all work as normal — they read the pinned slug from config.
+
+Acceptance itself still happens in the web UI today — there's no `workjournal invites accept` verb. If the user pastes an invitation link in chat, point them at the link to accept, then run step 1.
 
 ## Formatting
 

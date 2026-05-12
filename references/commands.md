@@ -43,10 +43,10 @@ The old `journal entries …` / `journal shares …` etc. forms are gone. Use th
 | Command | Description |
 |---|---|
 | `journals list [<ws>]` | List journals in workspace (defaults to selected) |
-| `journals list shared-with-me` | List journals shared into you from workspaces you don't own |
+| `journals list shared-with-me` | List journals shared with you from workspaces you don't own |
 | `journals get <ws> <j>` | Show details of a journal |
 | `journals new <ws> <name> [--slug <slug>]` | Create a journal |
-| `journals select <ws> <j>` | Set active journal in project-config |
+| `journals select <ws> <j>` | Set active journal in config (global + project when available). Works for owned and shared journals — for shared, pass the real workspace slug returned by `journals list shared-with-me`. |
 | `journals rename <ws> <j> <newName>` | Change the human name (slug stays) |
 | `journals set-slug <ws> <j> <newSlug>` | Change the URL slug (breaks existing links — skill warns and confirms) |
 | `journals delete <ws> <j>` | Delete a journal (destructive) |
@@ -135,6 +135,17 @@ There's no `init` shortcut — walk new users through it explicitly:
 2. `/workjournal workspaces` — pick the active workspace (interactive picker).
 3. `/workjournal journals new <ws> "<name>"` — create a journal if they have none.
 4. `/workjournal journals` — pick the new journal as active (interactive picker).
+
+### Working with shared journals
+
+A "shared journal" is one where the caller is a contributor in a workspace someone else owns. Two-step flow:
+
+1. `workjournal journals list shared-with-me` — surfaces a two-column table of `(workspace_slug, journal_slug)` pairs. The workspace slug is the *real* one (e.g. `acme`), not `shared-with-me`. Owner email and role are still on the JSON payload via `--json`.
+2. `workjournal journals select <real-workspace> <journal-slug>` — pin the journal using the workspace slug from step 1. `journals select` works identically for owned and shared journals because the underlying `journals_visible` view permits both. After this, all other commands (`workjournal`, `workjournal last`, `workjournal entries write`, etc.) work normally.
+
+`shared-with-me` is a discovery-only slug — only `journals list` accepts it. Anywhere else (e.g. `workspaces select shared-with-me`, `journals get shared-with-me <j>`) it's treated as an unknown slug and produces a 404.
+
+In the interactive `/workjournal journals` picker, a `(shared with me — K journals)` footer row appears when K > 0, pivoting into a sub-picker that runs the two-step above on the user's behalf (using the real workspace slug from the row to avoid slug-collision ambiguity).
 
 ## Authentication
 
