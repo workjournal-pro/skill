@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.10"
+  version: "1.11"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -30,7 +30,7 @@ Split `{args}` on the first whitespace to get `keyword` and the remainder. Route
 | `journals` | *(none)* | **Shortcut** — journal picker (see below) |
 | `journals` | `list` / `get` / `new` / `delete` / `select` / `rename` / `set-slug` / `assign-prompt` / `unassign-prompt` | **CLI passthrough** |
 | `prompts` | `list` / `new` / `get` / `update` / `delete` | **CLI passthrough** — Plus/Pro feature; surfaces tier-rejection errors verbatim from the API |
-| `tags` | `list` / `new` / `get` / `update` / `delete` | **CLI passthrough** — Plus+ feature (Pattern D, issue #239); creation surfaces tier-rejection errors verbatim |
+| `tags` | `list` / `get` / `new` / `update` / `delete` / `assign` / `unassign` | **CLI passthrough** — Plus+ feature (Pattern D, issue #239 + M5 rework #441). `new` and `assign` are Plus+-gated and surface tier-rejection errors verbatim; `update`, `delete`, and `unassign` are allowed at any tier so downgraded workspaces can scrub leftover data. |
 | `journal`, `entries`, `shares`, `invites`, `export`, `auth`, `config` | any | **CLI passthrough** — run `workjournal {args}` verbatim |
 | anything else | — | **Shortcut** — write entry, using `{args}` as the title |
 
@@ -76,18 +76,21 @@ The default action when the first word isn't a recognised keyword. Writes a jour
 
 1. Run the auth precheck and the selection precheck. Capture `<ws>` and `<j>`.
 2. **Fetch the journal's prompt before reviewing the conversation.** Run `npx --yes @workjournal/cli journals get <ws> <j> --json` and parse `prompt.body` from the response — it's always non-empty. The journal-fetch endpoint returns the system-default body whenever no custom prompt is assigned (Free always; Plus/Pro before the owner assigns one), and the assigned custom prompt's body otherwise — `prompt.source` distinguishes them, but you only need `prompt.body`. Treat `prompt.body` as the writing instruction for this journal: it dictates structure, voice, sections to include or skip. The next step's review is filtered through that lens. Why fetch first: prompts are per-journal and may have changed since the last session, so don't rely on memory.
-3. Review the conversation so far. Identify what work was performed — files touched, decisions made, bugs fixed, trade-offs accepted. Apply `prompt.body` from step 2 to shape the title, summary, and body.
-4. If the user provided a title (`/workjournal Some title`), use it. Otherwise synthesise a concise 3–8 word title (max 80 characters) that captures the **outcome**, not the process.
-5. Generate a paragraph-length summary alongside the title — title is for scanning, summary is what `last_entries` and search use to retrieve context.
-6. Create the entry:
+3. **Fetch the journal's assigned tags.** Run `npx --yes @workjournal/cli tags list <ws> --journal <j> --json` and keep only rows where `assigned === true`. On non-Plus workspaces this list is empty (Free can't create tags) — skip the rest of this step. If the command fails (FREE workspace, network), don't block the write — just proceed without tags.
+4. Review the conversation so far. Identify what work was performed — files touched, decisions made, bugs fixed, trade-offs accepted. Apply `prompt.body` from step 2 to shape the title, summary, and body.
+5. If the user provided a title (`/workjournal Some title`), use it. Otherwise synthesise a concise 3–8 word title (max 80 characters) that captures the **outcome**, not the process.
+6. Generate a paragraph-length summary alongside the title — title is for scanning, summary is what `last_entries` and search use to retrieve context.
+7. **Pick tags from the assigned set in step 3.** Match the entry against each tag's `name` + `description` and select only the ones that genuinely apply. Closed-enum: you may only choose from the assigned list — do not invent names. If the assigned list is empty, or none clearly fit, or you're not confident, omit `--tags` entirely. Better to skip than to mis-tag. Tags drive the timeline filter, so noisy tagging poisons retrieval.
+8. Create the entry. Include `--tags <a,b,c>` only when step 7 picked at least one:
    ```sh
    npx --yes @workjournal/cli entries write <ws> <j> \
      -t "Concise outcome title (≤80 chars)" \
      -s "1–3 sentence summary explaining what was done and why" \
      -b "Detailed markdown body that follows the fetched prompt.body guidance" \
+     [--tags <picked,from,assigned>] \
      --json
    ```
-7. Parse the JSON response and confirm with the user — quote the assigned index (`#N`) and the title back.
+9. Parse the JSON response and confirm with the user — quote the assigned index (`#N`), the title, and any tags applied.
 
 ### `search <query>`
 
@@ -252,7 +255,9 @@ Passthrough — run the CLI command verbatim:
   /workjournal entries write <ws> <j> -t … -s … -b … [--tags a,b,c]  Optional comma-separated tag names (Plus+)
   /workjournal entries update <ws> <j> <idx> [--tags a,b,c]   Replace the tag set (--tags "" clears)
   /workjournal prompts list|new|get|update|delete <ws> …  Workspace prompts (Plus/Pro; parameters vary by command)
-  /workjournal tags list|new|get|update|delete <ws> …  Workspace/journal tag registry (Plus+; create gated, edit/delete not)
+  /workjournal tags list|get|new|update|delete <ws> …                Workspace tag registry (Plus+; create gated, edit/delete not)
+  /workjournal tags assign <ws> <j> <name>                            Make a registry tag usable on entries in this journal (Plus+)
+  /workjournal tags unassign <ws> <j> <name>                          Remove the tag from this journal (cascade-strips from entries here)
   /workjournal shares list|delete <ws> <j> …    Contributors of a journal
   /workjournal invites list|new|delete <ws> <j> …  Pending invitations
   /workjournal export <ws> <j> [-f json|md|csv] [-p <path>]
@@ -271,7 +276,8 @@ When the routing rules above resolve to passthrough:
    - `journals delete <ws> <j>`
    - `journals set-slug <ws> <j> <newSlug>` — not strictly destructive, but old URLs 404 immediately, so warn and confirm.
    - `prompts delete <ws> <slug>` — cascades unassignment from any journals using the prompt.
-   - `tags delete <ws> <name>` — cascades to remove the tag from every entry that referenced it.
+   - `tags delete <ws> <name>` — cascades to remove the tag from every entry that referenced it across every assigned journal.
+   - `tags unassign <ws> <j> <name>` — cascade-strips the tag's name from every entry in this journal (entries in other journals unaffected).
 
    Example confirmation: *"About to run `workjournal entries delete acme engineering 4` — this removes the entry permanently. Confirm?"* If the user doesn't confirm, stop.
 
@@ -310,6 +316,8 @@ When the routing rules above resolve to passthrough:
 | `/workjournal tags new acme decision -d "Records a decision"` | `workjournal tags new acme decision -d "Records a decision" --json` |
 | `/workjournal tags update acme decision -d "Refined description"` | `workjournal tags update acme decision -d "Refined description" --json` |
 | `/workjournal tags delete acme deprecated-tag` | *confirm* → `workjournal tags delete acme deprecated-tag` |
+| `/workjournal tags assign acme engineering decision` | `workjournal tags assign acme engineering decision --json` |
+| `/workjournal tags unassign acme engineering decision` | *confirm* → `workjournal tags unassign acme engineering decision --json` |
 | `/workjournal entries write acme engineering -t "..." -s "..." -b "..." --tags decision,blocker` | `workjournal entries write acme engineering -t "..." -s "..." -b "..." --tags decision,blocker --json` |
 | `/workjournal entries update acme engineering 5 --tags ""` | `workjournal entries update acme engineering 5 --tags "" --json` |
 | `/workjournal auth whoami` | `workjournal auth whoami` |
