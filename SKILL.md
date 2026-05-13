@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.13"
+  version: "1.14"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -28,7 +28,7 @@ Split `{args}` on the first whitespace to get `keyword` and the remainder. Route
 | `workspaces` | *(none)* | **Shortcut** — workspace picker (see below) |
 | `workspaces` | `list` / `get` / `select` | **CLI passthrough** |
 | `journals` | *(none)* | **Shortcut** — journal picker (see below) |
-| `journals` | `list` / `get` / `new` / `delete` / `select` / `rename` / `set-slug` / `select-prompt` / `unselect-prompt` | **CLI passthrough** |
+| `journals` | `list` / `get` / `new` / `delete` / `select` / `rename` / `set-slug` / `update` / `select-prompt` / `unselect-prompt` | **CLI passthrough** |
 | `prompts` | `list` / `new` / `get` / `update` / `delete` | **CLI passthrough** — Plus/Pro feature; surfaces tier-rejection errors verbatim from the API |
 | `tags` | `list` / `get` / `new` / `update` / `delete` / `assign` / `unassign` | **CLI passthrough** — Plus+ feature (Pattern D, issue #239 + M5 rework #441). `new` and `assign` are Plus+-gated and surface tier-rejection errors verbatim; `update`, `delete`, and `unassign` are allowed at any tier so downgraded workspaces can scrub leftover data. |
 | `journal`, `entries`, `shares`, `invites`, `export`, `auth`, `config` | any | **CLI passthrough** — run `workjournal {args}` verbatim |
@@ -185,16 +185,18 @@ Interactive picker for the active workspace's journals, with a substring filter,
 6. **Workspace-journal submenu.** Render:
    ```text
    <ws>/<slug> — what next?
-     [1] select         — make this the active journal
-     [2] delete         — destructive, will ask to confirm
-     [3] rename         — change the human name (slug stays)
-     [4] change url     — change the slug (breaks existing links)
+     [1] select           — make this the active journal
+     [2] delete           — destructive, will ask to confirm
+     [3] rename           — change the human name (slug stays)
+     [4] change url       — change the slug (breaks existing links)
+     [5] edit description — change the description (slug/name unchanged)
    ```
    Wait for the user's reply. Resolve the action:
    - **select** → run `workjournal journals select <ws> <slug>`. Confirm: *"Active journal: `<ws>/<slug>`."*
    - **delete** → confirm again with the user (*"Delete `<ws>/<slug>` and all its entries? This cannot be undone."*). If confirmed, run `workjournal journals delete <ws> <slug>`.
    - **rename** → ask: *"New name?"*. On reply, run `workjournal journals rename <ws> <slug> "<newName>" --json`. Confirm with the new name.
    - **change url** → warn explicitly: *"Changing the slug breaks any existing links — old URLs to `<ws>/<slug>` will start returning 404. New slug?"*. After receiving `<newSlug>`, ask for explicit confirmation: *"About to change `<ws>/<slug>` to `<ws>/<newSlug>`. This will break old links. Confirm?"*. Only run `workjournal journals set-slug <ws> <slug> <newSlug> --json` on an affirmative reply; otherwise abort and tell the user the slug change was cancelled.
+   - **edit description** → ask: *"New description? (empty input clears the existing description)"*. On a non-empty reply, run `workjournal journals update <ws> <slug> -d "<newDescription>" --json`. On an empty reply, confirm clear (*"Clear the description for `<ws>/<slug>`?"*) and on affirmative run `workjournal journals update <ws> <slug> -d "" --json`. Confirm with the new state.
 7. **Shared-with-me sub-picker.** Render the rows from the shared listing. Use `<workspace>/<slug>` as the label since journal slugs can collide across workspaces — and this is the disambiguator we'll use in the next step:
    ```text
    Shared with me:
@@ -259,13 +261,13 @@ Print the reference block below and stop:
 /workjournal last [N]                           Show the last N entries (default 1, full body)
 /workjournal check                              Find entries relevant to the current conversation
 /workjournal workspaces                         Interactive workspace picker
-/workjournal journals                           Interactive journal picker (select / delete / rename / change url; pivots to shared-with-me sub-picker)
+/workjournal journals                           Interactive journal picker (select / delete / rename / change url / edit description; pivots to shared-with-me sub-picker)
 /workjournal login                              Authenticate with Workjournal (two-phase browser flow)
 
 Passthrough — run the CLI command verbatim:
   /workjournal workspaces list|get|select       Manage workspaces
   /workjournal journal                          Show selected journal details
-  /workjournal journals list|get|new|delete|select|rename|set-slug   Manage journals (most take <ws> <j>; `list` accepts `shared-with-me` as <ws>; `select` always takes a real workspace slug)
+  /workjournal journals list|get|new|delete|select|rename|set-slug|update   Manage journals (most take <ws> <j>; `list` accepts `shared-with-me` as <ws>; `select` always takes a real workspace slug); `update` patches name and/or description (-n / -d "" clears).
   /workjournal journals select-prompt <ws> <j> <slug>     Select a prompt from the journal's pool as active
   /workjournal journals unselect-prompt <ws> <j>          Reset the journal's active prompt to the system default
   /workjournal entries list|write|last|get|update|delete|search <ws> <j> …  Entries within a journal

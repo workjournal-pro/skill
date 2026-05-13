@@ -47,8 +47,9 @@ The old `journal entries …` / `journal shares …` etc. forms are gone. Use th
 | `journals get <ws> <j>` | Show details of a journal |
 | `journals new <ws> <name> [--slug <slug>]` | Create a journal |
 | `journals select <ws> <j>` | Set active journal in config (global + project when available). Works for owned and shared journals — for shared, pass the real workspace slug returned by `journals list shared-with-me`. |
-| `journals rename <ws> <j> <newName>` | Change the human name (slug stays) |
+| `journals rename <ws> <j> <newName>` | Change the human name (slug stays). Single-field alias for `journals update -n`. |
 | `journals set-slug <ws> <j> <newSlug>` | Change the URL slug (breaks existing links — skill warns and confirms) |
+| `journals update <ws> <j> [-n <name>] [-d <description>]` | Patch the journal's display name and/or description in one call. At least one of -n/-d required. `-d ""` clears the description. |
 | `journals delete <ws> <j>` | Delete a journal (destructive) |
 
 ### Entries (`/workjournal entries …`)
