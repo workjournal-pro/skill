@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.12"
+  version: "1.13"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -28,7 +28,7 @@ Split `{args}` on the first whitespace to get `keyword` and the remainder. Route
 | `workspaces` | *(none)* | **Shortcut** — workspace picker (see below) |
 | `workspaces` | `list` / `get` / `select` | **CLI passthrough** |
 | `journals` | *(none)* | **Shortcut** — journal picker (see below) |
-| `journals` | `list` / `get` / `new` / `delete` / `select` / `rename` / `set-slug` / `assign-prompt` / `unassign-prompt` | **CLI passthrough** |
+| `journals` | `list` / `get` / `new` / `delete` / `select` / `rename` / `set-slug` / `select-prompt` / `unselect-prompt` | **CLI passthrough** |
 | `prompts` | `list` / `new` / `get` / `update` / `delete` | **CLI passthrough** — Plus/Pro feature; surfaces tier-rejection errors verbatim from the API |
 | `tags` | `list` / `get` / `new` / `update` / `delete` / `assign` / `unassign` | **CLI passthrough** — Plus+ feature (Pattern D, issue #239 + M5 rework #441). `new` and `assign` are Plus+-gated and surface tier-rejection errors verbatim; `update`, `delete`, and `unassign` are allowed at any tier so downgraded workspaces can scrub leftover data. |
 | `journal`, `entries`, `shares`, `invites`, `export`, `auth`, `config` | any | **CLI passthrough** — run `workjournal {args}` verbatim |
@@ -266,8 +266,8 @@ Passthrough — run the CLI command verbatim:
   /workjournal workspaces list|get|select       Manage workspaces
   /workjournal journal                          Show selected journal details
   /workjournal journals list|get|new|delete|select|rename|set-slug   Manage journals (most take <ws> <j>; `list` accepts `shared-with-me` as <ws>; `select` always takes a real workspace slug)
-  /workjournal journals assign-prompt <ws> <j> <slug>     Assign a workspace prompt to a journal
-  /workjournal journals unassign-prompt <ws> <j>          Unassign the journal's prompt
+  /workjournal journals select-prompt <ws> <j> <slug>     Select a prompt from the journal's pool as active
+  /workjournal journals unselect-prompt <ws> <j>          Reset the journal's active prompt to the system default
   /workjournal entries list|write|last|get|update|delete|search <ws> <j> …  Entries within a journal
   /workjournal entries write <ws> <j> -t … -s … -b … [--tags a,b,c]  Optional comma-separated tag names (Plus+)
   /workjournal entries update <ws> <j> <idx> [--tags a,b,c]   Replace the tag set (--tags "" clears)
@@ -326,8 +326,8 @@ When the routing rules above resolve to passthrough:
 | `/workjournal prompts list acme` | `workjournal prompts list acme --json` |
 | `/workjournal prompts new acme "Project style" -b "Be concise."` | `workjournal prompts new acme "Project style" -b "Be concise." --json` |
 | `/workjournal prompts delete acme project-style` | *confirm* → `workjournal prompts delete acme project-style` |
-| `/workjournal journals assign-prompt acme engineering project-style` | `workjournal journals assign-prompt acme engineering project-style --json` |
-| `/workjournal journals unassign-prompt acme engineering` | `workjournal journals unassign-prompt acme engineering --json` |
+| `/workjournal journals select-prompt acme engineering project-style` | `workjournal journals select-prompt acme engineering project-style --json` |
+| `/workjournal journals unselect-prompt acme engineering` | `workjournal journals unselect-prompt acme engineering --json` |
 | `/workjournal tags list acme` | `workjournal tags list acme --json` |
 | `/workjournal tags list acme --journal engineering` | `workjournal tags list acme --journal engineering --json` |
 | `/workjournal tags new acme decision -d "Records a decision"` | `workjournal tags new acme decision -d "Records a decision" --json` |
