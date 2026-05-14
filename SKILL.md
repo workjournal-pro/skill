@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.14"
+  version: "1.15"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -110,7 +110,7 @@ Full-body view of the N most recent entries (default 1).
 npx --yes @workjournal/cli entries last <ws> <j> N --json
 ```
 
-Display each entry with its index, date, summary, and `what_changed` body. Separate entries with a horizontal rule.
+Display each entry with its index, date, summary, and `body`. Separate entries with a horizontal rule.
 
 ### `check`
 
@@ -366,5 +366,5 @@ Acceptance itself still happens in the web UI today — there's no `workjournal 
 ## Formatting
 
 - Markdown output. Use tables for lists, horizontal rules between entry bodies, dates in human form (e.g. "April 23, 2026").
-- Keep summaries tight. Verbose bodies in `what_changed` are fine — they're a record for future-you.
+- Keep summaries tight. Verbose `body` content is fine — they're a record for future-you.
 - Never include bearer credentials (invitation tokens, access tokens, refresh tokens) in your output. If a CLI response contains one, redact it or omit that field.
