@@ -62,7 +62,8 @@ The old `journal entries …` / `journal shares …` etc. forms are gone. Use th
 | `entries write <ws> <j> -t <title> -s <summary> -b <body>` | Create an entry (title required, ≤80 chars) |
 | `entries update <ws> <j> <index> [-t <title>] [-s <summary>] [-b <file>\|-]` | Update title, summary, and/or body of an existing entry. At least one field required; `-b -` reads stdin |
 | `entries delete <ws> <j> <index>` | Delete an entry (destructive) |
-| `entries search <ws> <j> <query>` | Search entries |
+| `entries search <ws> <j> <query>` | Search entries by keyword (Postgres full-text) |
+| `entries semantic-search <ws> <j> <query> [--limit N]` | Semantic (RAG) search over a journal (Pro+) — ranks chunks by cosine similarity, returns chunks not entries. Surfaces 402 verbatim on Free/Plus. |
 
 ### Shares — contributors (`/workjournal shares …`)
 

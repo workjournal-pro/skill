@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.15"
+  version: "1.16"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -270,9 +270,10 @@ Passthrough — run the CLI command verbatim:
   /workjournal journals list|get|new|delete|select|rename|set-slug|update   Manage journals (most take <ws> <j>; `list` accepts `shared-with-me` as <ws>; `select` always takes a real workspace slug); `update` patches name and/or description (-n / -d "" clears).
   /workjournal journals select-prompt <ws> <j> <slug>     Select a prompt from the journal's pool as active
   /workjournal journals unselect-prompt <ws> <j>          Reset the journal's active prompt to the system default
-  /workjournal entries list|write|last|get|update|delete|search <ws> <j> …  Entries within a journal
+  /workjournal entries list|write|last|get|update|delete|search|semantic-search <ws> <j> …  Entries within a journal
   /workjournal entries write <ws> <j> -t … -s … -b … [--tags a,b,c]  Optional comma-separated tag names (Plus+)
   /workjournal entries update <ws> <j> <idx> [--tags a,b,c]   Replace the tag set (--tags "" clears)
+  /workjournal entries semantic-search <ws> <j> <query> [--limit N]  Pgvector semantic search over the journal (Pro+); surfaces tier-rejection errors verbatim
   /workjournal prompts list|new|get|update|delete <ws> …  Workspace prompts (Plus/Pro; parameters vary by command)
   /workjournal tags list|get|new|update|delete <ws> …                Workspace tag registry (Plus+; create gated, edit/delete not)
   /workjournal tags assign <ws> <j> <name>                            Make a registry tag usable on entries in this journal (Plus+)
@@ -316,6 +317,8 @@ When the routing rules above resolve to passthrough:
 |---|---|
 | `/workjournal entries get acme engineering 5` | `workjournal entries get acme engineering 5 --json` |
 | `/workjournal entries update acme engineering 5 -t "Verified"` | `workjournal entries update acme engineering 5 -t "Verified" --json` |
+| `/workjournal entries semantic-search acme engineering "pgvector decision"` | `workjournal entries semantic-search acme engineering "pgvector decision" --json` (Pro+; 402 surfaced verbatim on Free/Plus) |
+| `/workjournal entries semantic-search acme engineering "retry semantics" --limit 25` | `workjournal entries semantic-search acme engineering "retry semantics" --limit 25 --json` |
 | `/workjournal shares list acme engineering` | `workjournal shares list acme engineering --json` |
 | `/workjournal invites new acme engineering alice@example.com` | `workjournal invites new acme engineering alice@example.com --json` |
 | `/workjournal export acme engineering -f md -p /tmp/out.md` | `workjournal export acme engineering -f md -p /tmp/out.md` |
