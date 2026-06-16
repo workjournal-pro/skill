@@ -65,6 +65,17 @@ The old `journal entries …` / `journal shares …` etc. forms are gone. Use th
 | `entries search <ws> <j> <query>` | Search entries by keyword (Postgres full-text) |
 | `entries semantic-search <ws> <j> <query> [--limit N]` | Semantic (RAG) search over a journal (Plus+) — ranks chunks by cosine similarity, returns chunks not entries. Surfaces 402 verbatim on Free. |
 
+### Attachments (`/workjournal attachments …`)
+
+Files (images + PDF only) scoped to a journal; ≤ 5 MiB each, metered against the per-workspace storage quota (Free 0.5 GiB / Plus 2 GiB / Pro 5 GiB). Entries link them many-to-many via an `attachment_ids` array on `entries write`/`update`.
+
+| Command | Description |
+|---|---|
+| `attachments upload <ws> <j> <filePath>` | Upload a local image/PDF (≤ 5 MiB; `.png .jpg .jpeg .gif .webp .pdf`). Prints `{ id, url }` |
+| `attachments list <ws> <j>` | List files (id, filename, type, size, linked entry indices) |
+| `attachments delete <ws> <j> <attachmentId>` | Delete a file from storage and unlink it from entries (destructive) |
+| `attachments download <ws> <j> <attachmentId> [-p <path>]` | Download bytes; `-p` writes to a path, else streams to stdout |
+
 ### Shares — contributors (`/workjournal shares …`)
 
 | Command | Description |
@@ -108,6 +119,7 @@ The old `journal entries …` / `journal shares …` etc. forms are gone. Use th
 Before running any of these patterns, the skill prints the resolved command and waits for the user to confirm:
 
 - `entries delete <ws> <j> <index>`
+- `attachments delete <ws> <j> <attachmentId>`
 - `shares delete <ws> <j> <email>`
 - `invites delete <ws> <j> <id>`
 - `journals delete <ws> <j>`

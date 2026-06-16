@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.17"
+  version: "1.19"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -31,6 +31,7 @@ Split `{args}` on the first whitespace to get `keyword` and the remainder. Route
 | `journals` | `list` / `get` / `new` / `delete` / `select` / `rename` / `set-slug` / `update` / `select-prompt` / `unselect-prompt` | **CLI passthrough** |
 | `prompts` | `list` / `new` / `get` / `update` / `delete` | **CLI passthrough** — Plus/Pro feature; surfaces tier-rejection errors verbatim from the API |
 | `tags` | `list` / `get` / `new` / `update` / `delete` / `assign` / `unassign` | **CLI passthrough** — Plus+ feature (Pattern D, issue #239 + M5 rework #441). `new` and `assign` are Plus+-gated and surface tier-rejection errors verbatim; `update`, `delete`, and `unassign` are allowed at any tier so downgraded workspaces can scrub leftover data. |
+| `attachments` | `upload` / `list` / `delete` / `download` | **CLI passthrough** — file attachments (images + PDF, ≤5 MiB) per journal (issue #561). `upload <ws> <j> <file>` reads a local path and returns an id + URL; `delete` is destructive (confirm first). Over-quota uploads surface a tier-limit error verbatim. |
 | `journal`, `entries`, `shares`, `invites`, `export`, `auth`, `config` | any | **CLI passthrough** — run `workjournal {args}` verbatim |
 | anything else | — | **Shortcut** — write entry, using `{args}` as the title |
 
@@ -278,6 +279,10 @@ Passthrough — run the CLI command verbatim:
   /workjournal tags list|get|new|update|delete <ws> …                Workspace tag registry (Plus+; create gated, edit/delete not)
   /workjournal tags assign <ws> <j> <name>                            Make a registry tag usable on entries in this journal (Plus+)
   /workjournal tags unassign <ws> <j> <name>                          Remove the tag from this journal (cascade-strips from entries here)
+  /workjournal attachments upload <ws> <j> <file>                     Upload an image/PDF (≤5 MiB) → returns id + URL (issue #561)
+  /workjournal attachments list <ws> <j>                              Files in a journal (id, type, size, linked entries)
+  /workjournal attachments delete <ws> <j> <id>                       Delete a file (removes it + unlinks from entries)
+  /workjournal attachments download <ws> <j> <id> [-p <path>]         Download a file's bytes
   /workjournal shares list|delete <ws> <j> …    Contributors of a journal
   /workjournal invites list|new|delete <ws> <j> …  Pending invitations
   /workjournal export <ws> <j> [-f json|md|csv] [-p <path>]
@@ -298,6 +303,7 @@ When the routing rules above resolve to passthrough:
    - `prompts delete <ws> <slug>` — cascades unassignment from any journals using the prompt.
    - `tags delete <ws> <name>` — cascades to remove the tag from every entry that referenced it across every assigned journal.
    - `tags unassign <ws> <j> <name>` — cascade-strips the tag's name from every entry in this journal (entries in other journals unaffected).
+   - `attachments delete <ws> <j> <id>` — removes the stored file and unlinks it from every entry that referenced it.
 
    Example confirmation: *"About to run `workjournal entries delete acme engineering 4` — this removes the entry permanently. Confirm?"* If the user doesn't confirm, stop.
 
@@ -342,6 +348,9 @@ When the routing rules above resolve to passthrough:
 | `/workjournal tags unassign acme engineering decision` | *confirm* → `workjournal tags unassign acme engineering decision --json` |
 | `/workjournal entries write acme engineering -t "..." -s "..." -b "..." --tags decision,blocker` | `workjournal entries write acme engineering -t "..." -s "..." -b "..." --tags decision,blocker --json` |
 | `/workjournal entries update acme engineering 5 --tags ""` | `workjournal entries update acme engineering 5 --tags "" --json` |
+| `/workjournal attachments upload acme engineering ./diagram.png` | `workjournal attachments upload acme engineering ./diagram.png --json` |
+| `/workjournal attachments list acme engineering` | `workjournal attachments list acme engineering --json` |
+| `/workjournal attachments delete acme engineering 1f0c…` | *confirm* → `workjournal attachments delete acme engineering 1f0c…` |
 | `/workjournal auth whoami` | `workjournal auth whoami` |
 | `/workjournal config show` | `workjournal config show` |
 
