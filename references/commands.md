@@ -36,7 +36,7 @@ When the first word + sub maps to a real CLI invocation (per the dispatch table 
 |---|---|
 | `journal` | Show selected journal details |
 
-The old `journal entries …` / `journal shares …` etc. forms are gone. Use the top-level resource verbs below with explicit `<ws> <j>` positionals.
+The old `journal entries …` / `journal contributors …` etc. forms are gone. Use the top-level resource verbs below with explicit `<ws> <j>` positionals.
 
 ### Manage journals (`/workjournal journals …`)
 
@@ -76,12 +76,12 @@ Files (images + PDF only) scoped to a journal; ≤ 5 MiB each, metered against t
 | `attachments delete <ws> <j> <attachmentId>` | Delete a file from storage and unlink it from entries (destructive) |
 | `attachments download <ws> <j> <attachmentId> [-p <path>]` | Download bytes; `-p` writes to a path, else streams to stdout |
 
-### Shares — contributors (`/workjournal shares …`)
+### Contributors (`/workjournal contributors …`)
 
 | Command | Description |
 |---|---|
-| `shares list <ws> <j>` | List contributors |
-| `shares delete <ws> <j> <email>` | Remove a contributor (destructive — CLI resolves email to user_id) |
+| `contributors list <ws> <j>` | List contributors |
+| `contributors delete <ws> <j> <email>` | Remove a contributor (destructive — CLI resolves email to user_id) |
 
 ### Invites (`/workjournal invites …`)
 
@@ -120,7 +120,7 @@ Before running any of these patterns, the skill prints the resolved command and 
 
 - `entries delete <ws> <j> <index>`
 - `attachments delete <ws> <j> <attachmentId>`
-- `shares delete <ws> <j> <email>`
+- `contributors delete <ws> <j> <email>`
 - `invites delete <ws> <j> <id>`
 - `journals delete <ws> <j>`
 - `journals set-slug <ws> <j> <newSlug>` — not strictly destructive, but old URLs return 404 immediately, so the skill warns and confirms before running.

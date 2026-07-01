@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.19"
+  version: "1.20"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -32,7 +32,7 @@ Split `{args}` on the first whitespace to get `keyword` and the remainder. Route
 | `prompts` | `list` / `new` / `get` / `update` / `delete` | **CLI passthrough** — Plus/Pro feature; surfaces tier-rejection errors verbatim from the API |
 | `tags` | `list` / `get` / `new` / `update` / `delete` / `assign` / `unassign` | **CLI passthrough** — Plus+ feature (Pattern D, issue #239 + M5 rework #441). `new` and `assign` are Plus+-gated and surface tier-rejection errors verbatim; `update`, `delete`, and `unassign` are allowed at any tier so downgraded workspaces can scrub leftover data. |
 | `attachments` | `upload` / `list` / `delete` / `download` | **CLI passthrough** — file attachments (images + PDF, ≤5 MiB) per journal (issue #561). `upload <ws> <j> <file>` reads a local path and returns an id + URL; `delete` is destructive (confirm first). Over-quota uploads surface a tier-limit error verbatim. |
-| `journal`, `entries`, `shares`, `invites`, `export`, `auth`, `config` | any | **CLI passthrough** — run `workjournal {args}` verbatim |
+| `journal`, `entries`, `contributors`, `invites`, `export`, `auth`, `config` | any | **CLI passthrough** — run `workjournal {args}` verbatim |
 | anything else | — | **Shortcut** — write entry, using `{args}` as the title |
 
 ## CLI invocation
@@ -283,7 +283,7 @@ Passthrough — run the CLI command verbatim:
   /workjournal attachments list <ws> <j>                              Files in a journal (id, type, size, linked entries)
   /workjournal attachments delete <ws> <j> <id>                       Delete a file (removes it + unlinks from entries)
   /workjournal attachments download <ws> <j> <id> [-p <path>]         Download a file's bytes
-  /workjournal shares list|delete <ws> <j> …    Contributors of a journal
+  /workjournal contributors list|delete <ws> <j> …    Contributors of a journal
   /workjournal invites list|new|delete <ws> <j> …  Pending invitations
   /workjournal export <ws> <j> [-f json|md|csv] [-p <path>]
   /workjournal auth login|logout|whoami|status
@@ -296,7 +296,7 @@ When the routing rules above resolve to passthrough:
 
 1. **Destructive guard** — if the remaining args name a destructive operation, *show the resolved command to the user and ask for confirmation before running it*. The destructive patterns are:
    - `entries delete <ws> <j> <index>`
-   - `shares delete <ws> <j> <email>`
+   - `contributors delete <ws> <j> <email>`
    - `invites delete <ws> <j> <id>`
    - `journals delete <ws> <j>`
    - `journals set-slug <ws> <j> <newSlug>` — not strictly destructive, but old URLs 404 immediately, so warn and confirm.
@@ -325,7 +325,7 @@ When the routing rules above resolve to passthrough:
 | `/workjournal entries update acme engineering 5 -t "Verified"` | `workjournal entries update acme engineering 5 -t "Verified" --json` |
 | `/workjournal entries semantic-search acme engineering "pgvector decision"` | `workjournal entries semantic-search acme engineering "pgvector decision" --json` (Plus+; 402 surfaced verbatim on Free) |
 | `/workjournal entries semantic-search acme engineering "retry semantics" --limit 25` | `workjournal entries semantic-search acme engineering "retry semantics" --limit 25 --json` |
-| `/workjournal shares list acme engineering` | `workjournal shares list acme engineering --json` |
+| `/workjournal contributors list acme engineering` | `workjournal contributors list acme engineering --json` |
 | `/workjournal invites new acme engineering alice@example.com` | `workjournal invites new acme engineering alice@example.com --json` |
 | `/workjournal export acme engineering -f md -p /tmp/out.md` | `workjournal export acme engineering -f md -p /tmp/out.md` |
 | `/workjournal workspaces list` | `workjournal workspaces list --json` |
