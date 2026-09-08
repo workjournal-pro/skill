@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.20"
+  version: "1.22"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -44,6 +44,20 @@ npx --yes @workjournal/cli <subcommand> --json
 ```
 
 Append `--json` to any data-producing command so you get machine-readable output you can parse and reformat. The CLI handles authentication, token refresh, slug resolution from project-config, and error handling internally — do not try to duplicate that logic here.
+
+### Addresses
+
+Anywhere a command takes `<workspaceSlug> <journalSlug> [<index>]`, a single **`wj:` address** may be passed instead:
+
+```sh
+npx --yes @workjournal/cli entries get wj:acme.engineering#42 --json
+npx --yes @workjournal/cli journals get wj:acme.engineering --json
+npx --yes @workjournal/cli workspaces get wj:acme --json
+```
+
+Use addresses when **citing** an entry back to the user — `wj:acme.engineering#42` is the canonical, unambiguous way to refer to one, and it is what the user can paste back at you. Do **not** invent a web URL for an entry; the address is the citable handle. `entries list` and `entries get` print the address alongside each entry.
+
+`wj:shared-with-me…` is never valid — a journal shared into the user is addressed by its **real** owning workspace, which `journals list shared-with-me` shows in its `Workspace` column.
 
 ## Authentication precheck
 
@@ -304,6 +318,8 @@ When the routing rules above resolve to passthrough:
    - `tags delete <ws> <name>` — cascades to remove the tag from every entry that referenced it across every assigned journal.
    - `tags unassign <ws> <j> <name>` — cascade-strips the tag's name from every entry in this journal (entries in other journals unaffected).
    - `attachments delete <ws> <j> <id>` — removes the stored file and unlinks it from every entry that referenced it.
+
+   **Match these patterns on the verb, not the argument shape.** A `wj:` address collapses the positional slugs into one token, so `entries delete wj:acme.engineering#42` is the same destructive operation as `entries delete acme engineering 42` and requires the same confirmation. Normalise the address to its slugs before deciding whether a command is destructive — never treat an unfamiliar argument shape as a non-match.
 
    Example confirmation: *"About to run `workjournal entries delete acme engineering 4` — this removes the entry permanently. Confirm?"* If the user doesn't confirm, stop.
 

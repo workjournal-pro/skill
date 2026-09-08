@@ -2,6 +2,27 @@
 
 The skill is a thin shell over the `workjournal` CLI (0.5.0+, slug-based). A small set of invocations are handled as *agent shortcuts* — picker menus and entry-orchestration that need either user interaction or context the CLI doesn't have. Everything else is a verbatim CLI passthrough. See `SKILL.md` for the dispatch logic.
 
+## Addresses
+
+Anywhere a command takes `<workspaceSlug> <journalSlug> [<index>]`, a single `wj:` address works instead:
+
+| Form | Names |
+|---|---|
+| `wj:acme` | a workspace |
+| `wj:acme.engineering` | a journal |
+| `wj:acme.engineering#42` | entry 42 of that journal |
+
+```sh
+workjournal entries get wj:acme.engineering#42
+workjournal journals get wj:acme.engineering
+```
+
+Addresses are interchangeable with the spelled-out slugs, including for **destructive** commands — `entries delete wj:acme.engineering#42` needs the same confirmation as `entries delete acme engineering 42`. Normalise before matching the destructive-guard patterns in `SKILL.md`.
+
+Each command accepts exactly the address form that supplies its positionals: `entries get` takes the entry form, `entries last` takes the journal form (its third positional is a count), and a mismatch is an error rather than a silently-ignored segment.
+
+This is the canonical way to cite an entry back to a user. Addresses survive entry deletion (indices are never renumbered) but **not** a workspace or journal slug rename. `wj:shared-with-me…` is never valid — address a shared journal by its real owning workspace.
+
 ## Agent shortcuts
 
 | Command | Description |
