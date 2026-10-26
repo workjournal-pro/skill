@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.22"
+  version: "1.24"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -24,7 +24,7 @@ Split `{args}` on the first whitespace to get `keyword` and the remainder. Route
 | First word | Sub | Behaviour |
 |---|---|---|
 | *(empty)* | — | **Shortcut** — write entry with an auto-generated title |
-| `search`, `last`, `check`, `login`, `help` | — | **Shortcut** — see sections below |
+| `search`, `find`, `last`, `check`, `login`, `help` | — | **Shortcut** — see sections below |
 | `workspaces` | *(none)* | **Shortcut** — workspace picker (see below) |
 | `workspaces` | `list` / `get` / `select` | **CLI passthrough** |
 | `journals` | *(none)* | **Shortcut** — journal picker (see below) |
@@ -69,9 +69,9 @@ npx --yes @workjournal/cli auth status
 
 If the command output contains `not authenticated` (case-insensitive), tell the user: *"No credentials found. Run `/workjournal login` to authenticate."* and stop. Otherwise proceed — the CLI refreshes expired tokens itself.
 
-## Selection precheck (for write/search/last/check shortcuts)
+## Selection precheck (for write/last/check shortcuts)
 
-The shortcuts that operate on entries need a `<workspaceSlug>` + `<journalSlug>` pair. Resolve the active selection by running:
+The shortcuts that operate on entries need a `<workspaceSlug>` + `<journalSlug>` pair. `search` and `find` don't: they search every journal you can see, or the address you pass, so run only the auth precheck for them. Resolve the active selection by running:
 
 ```sh
 npx --yes @workjournal/cli config show
@@ -107,15 +107,21 @@ The default action when the first word isn't a recognised keyword. Writes a jour
    ```
 9. Parse the JSON response and confirm with the user — quote the assigned index (`#N`), the title, and any tags applied.
 
-### `search <query>`
+### `search <query>` and `find [<address>] <query>`
 
-Short alias for entry search.
+The same two names mean the same thing in the API, the MCP tools and the CLI:
 
-```sh
-npx --yes @workjournal/cli entries search <ws> <j> "QUERY" --json
-```
+| Shortcut | Searches | CLI call |
+|---|---|---|
+| `search <query>` | every journal you can see (your workspaces plus journals shared with you): keyword search, top 50 entries, no options | `npx --yes @workjournal/cli search "QUERY" --json` |
+| `find [<address>] <query> [--type rag] [--limit N] [--offset N]` | the journals you can see in `<address>` (a `wj:<workspace>` address or workspace slug), or all of them when omitted, by keyword or meaning, with paging | `npx --yes @workjournal/cli find [<address>] "QUERY" [flags] --json` |
 
-Render results as a compact list: `#N (date) summary`. On empty results, say so and suggest broader terms.
+- Pass the query as **one quoted argument**. `search` takes nothing else: a flag or a second word is an error that points to `find`. `find` rejects more than two positionals rather than guessing which word is the address.
+- To search **one specific journal**, use the passthrough `/workjournal entries search <ws> <j> <query>` (the `check` shortcut below does this for the selected journal).
+- `find --type rag` (semantic search) needs a workspace address, owner or member access, and the Plus plan. On a Free workspace or a shared-only journal the CLI prints the API message plus `try: --type=text`. Relay the message as-is and rerun without `--type rag`.
+- `find --limit N` (1–50, entries) and `--offset N` (text only) pass straight through.
+
+Render results as a compact list: the hit's `address` (`wj:<ws>.<j>#<n>`), its date and title, and the first match excerpt. On empty results, say so and suggest broader terms. If the output reports more results, offer the suggested next command (`find … --offset N`).
 
 ### `last [N]`
 
@@ -272,7 +278,8 @@ Print the reference block below and stop:
 ```text
 /workjournal                                    Write a new entry (auto-title from conversation)
 /workjournal <title>                            Write a new entry with an explicit title
-/workjournal search <query>                     Search entries by keyword
+/workjournal search <query>                     Search every journal you can see by keyword (top 50, no options)
+/workjournal find [<address>] <query> [--type rag] [--limit N] [--offset N]  Controlled search: one workspace or all, by keyword or meaning, with paging (rag: Plus, members)
 /workjournal last [N]                           Show the last N entries (default 1, full body)
 /workjournal check                              Find entries relevant to the current conversation
 /workjournal workspaces                         Interactive workspace picker
@@ -289,6 +296,7 @@ Passthrough — run the CLI command verbatim:
   /workjournal entries write <ws> <j> -t … -s … -b … [--tags a,b,c]  Optional comma-separated tag names (Plus+)
   /workjournal entries update <ws> <j> <idx> [--tags a,b,c]   Replace the tag set (--tags "" clears)
   /workjournal entries semantic-search <ws> <j> <query> [--limit N]  Pgvector semantic search over the journal (Plus+); surfaces tier-rejection errors verbatim
+  `workjournal search <query>` / `workjournal find [<address>] <query> [--type text|rag] [--limit N] [--offset N]`  Global search (POST /v1/search) / controlled search (POST /v1/find); reached via the `search` / `find` shortcuts
   /workjournal prompts list|new|get|update|delete <ws> …  Workspace prompts (Plus/Pro; parameters vary by command)
   /workjournal tags list|get|new|update|delete <ws> …                Workspace tag registry (Plus+; create gated, edit/delete not)
   /workjournal tags assign <ws> <j> <name>                            Make a registry tag usable on entries in this journal (Plus+)
@@ -387,7 +395,7 @@ If the user accepted a journal invitation in the web app and is now back in thei
 
 1. `/workjournal journals` — the picker fetches both their workspace journals and the shared list. A `(shared with me — K journals)` footer row appears when K > 0; pick it to drill into the shared sub-picker.
 2. Pick the shared journal. The skill runs `workjournal journals select <real-ws> <j>` using the workspace slug shown in the sub-picker row, pinning it to config. No magic-slug resolution step — the row already disambiguated.
-3. From here `/workjournal` (no args), `/workjournal last`, `/workjournal search`, etc. all work as normal — they read the pinned slug from config.
+3. From here `/workjournal` (no args), `/workjournal last`, `/workjournal check`, etc. all work as normal — they read the pinned slug from config. `/workjournal search` and `/workjournal find` already cover shared journals without selecting one.
 
 Acceptance itself still happens in the web UI today — there's no `workjournal invites accept` verb. If the user pastes an invitation link in chat, point them at the link to accept, then run step 1.
 

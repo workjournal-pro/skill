@@ -29,7 +29,8 @@ This is the canonical way to cite an entry back to a user. Addresses survive ent
 |---|---|
 | `/workjournal` | Write a new entry (title auto-generated from the conversation) |
 | `/workjournal <title>` | Write a new entry with an explicit title |
-| `/workjournal search <query>` | Resolve active selection, then call `workjournal entries search <ws> <j> <query>` |
+| `/workjournal search <query>` | Call `workjournal search "<query>"` (global keyword search: own workspaces + shared with you; top 50, no options) |
+| `/workjournal find [<address>] <query> [--type rag] [--limit N] [--offset N]` | Call `workjournal find [<address>] "<query>" …` (controlled search; rag needs a workspace address, Plus + membership) |
 | `/workjournal last [N]` | Resolve active selection, then call `workjournal entries last <ws> <j> [N]` — full body |
 | `/workjournal check` | Orchestrates 2–4 search calls based on the current conversation |
 | `/workjournal workspaces` | Numbered picker for switching the active workspace |
@@ -85,6 +86,8 @@ The old `journal entries …` / `journal contributors …` etc. forms are gone. 
 | `entries delete <ws> <j> <index>` | Delete an entry (destructive) |
 | `entries search <ws> <j> <query>` | Search entries by keyword (Postgres full-text) |
 | `entries semantic-search <ws> <j> <query> [--limit N]` | Semantic (RAG) search over a journal (Plus+) — ranks chunks by cosine similarity, returns chunks not entries. Surfaces 402 verbatim on Free. |
+| `search <query>` | Simple global keyword search (`POST /v1/search`): every journal the caller can see, top 50, no flags. A flag or second argument errors with a pointer to `find`. |
+| `find [<address>] <query> [--type text\|rag] [--limit N] [--offset N]` | Controlled search (`POST /v1/find`). No address = global (text only); `<address>` is `wj:<ws>` or a bare workspace slug. One ranked hit per entry with `address` + `matches[]`. On a rag 402/403 prints the API message plus `try: --type=text`, exit 1. |
 
 ### Attachments (`/workjournal attachments …`)
 
