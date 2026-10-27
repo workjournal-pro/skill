@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.24"
+  version: "1.29"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -43,7 +43,7 @@ Every call goes through the published CLI:
 npx --yes @workjournal/cli <subcommand> --json
 ```
 
-Append `--json` to any data-producing command so you get machine-readable output you can parse and reformat. The CLI handles authentication, token refresh, slug resolution from project-config, and error handling internally — do not try to duplicate that logic here.
+Append `--json` to any data-producing command so you get machine-readable output you can parse and reformat. If a query starts with `-`, put `--json` before the `--` that precedes the query; anything after `--` is the query. The CLI handles authentication, token refresh, slug resolution from project-config, and error handling internally — do not try to duplicate that logic here.
 
 ### Addresses
 
@@ -114,11 +114,11 @@ The same two names mean the same thing in the API, the MCP tools and the CLI:
 | Shortcut | Searches | CLI call |
 |---|---|---|
 | `search <query>` | every journal you can see (your workspaces plus journals shared with you): keyword search, top 50 entries, no options | `npx --yes @workjournal/cli search "QUERY" --json` |
-| `find [<address>] <query> [--type rag] [--limit N] [--offset N]` | the journals you can see in `<address>` (a `wj:<workspace>` address or workspace slug), or all of them when omitted, by keyword or meaning, with paging | `npx --yes @workjournal/cli find [<address>] "QUERY" [flags] --json` |
+| `find [<address>] <query> [--type rag] [--limit N] [--offset N]` | the journals you can see in `<address>` (a workspace, `wj:acme` / `acme`, or one journal, `wj:acme.eng` / `acme.eng`), or all of them when omitted, by keyword or meaning, with paging | `npx --yes @workjournal/cli find [<address>] "QUERY" [flags] --json` |
 
 - Pass the query as **one quoted argument**. `search` takes nothing else: a flag or a second word is an error that points to `find`. `find` rejects more than two positionals rather than guessing which word is the address.
-- To search **one specific journal**, use the passthrough `/workjournal entries search <ws> <j> <query>` (the `check` shortcut below does this for the selected journal).
-- `find --type rag` (semantic search) needs a workspace address, owner or member access, and the Plus plan. On a Free workspace or a shared-only journal the CLI prints the API message plus `try: --type=text`. Relay the message as-is and rerun without `--type rag`.
+- To search **one specific journal**, pass its address: `find wj:<ws>.<j> "QUERY"` (the `check` shortcut below does this for the selected journal). `entries search` / `entries semantic-search` are deprecated and stop working after Mon, 30 Nov 2026 23:59:59 GMT; don't use them.
+- `find --type rag` (semantic search) needs a workspace or journal address, owner or member access to its workspace, and the Plus plan. On a Free workspace or a shared-only journal the CLI prints the API message plus `try: --type=text`. Relay the message as-is and rerun without `--type rag`.
 - `find --limit N` (1–50, entries) and `--offset N` (text only) pass straight through.
 
 Render results as a compact list: the hit's `address` (`wj:<ws>.<j>#<n>`), its date and title, and the first match excerpt. On empty results, say so and suggest broader terms. If the output reports more results, offer the suggested next command (`find … --offset N`).
@@ -141,9 +141,9 @@ Find past entries relevant to the current conversation. The CLI has no native "c
 2. Extract 2–4 key terms from the conversation (file names, feature names, error strings, technical concepts).
 3. For each term:
    ```sh
-   npx --yes @workjournal/cli entries search <ws> <j> "TERM" --json
+   npx --yes @workjournal/cli find wj:<ws>.<j> "TERM" --json
    ```
-4. Deduplicate by entry index. Rank by how many search terms each entry matched.
+4. Deduplicate by `address` across the responses' `data`. Rank by how many search terms each entry matched.
 5. Present the top results, each with a one-line "why this might be relevant" annotation tied to the matched term.
 6. If nothing lands, say so briefly — don't invent relevance.
 
@@ -279,7 +279,7 @@ Print the reference block below and stop:
 /workjournal                                    Write a new entry (auto-title from conversation)
 /workjournal <title>                            Write a new entry with an explicit title
 /workjournal search <query>                     Search every journal you can see by keyword (top 50, no options)
-/workjournal find [<address>] <query> [--type rag] [--limit N] [--offset N]  Controlled search: one workspace or all, by keyword or meaning, with paging (rag: Plus, members)
+/workjournal find [<address>] <query> [--type rag] [--limit N] [--offset N]  Controlled search: one journal, one workspace or all, with paging; unscoped is keyword only (rag needs an address, Plus, and owner or member access to the workspace)
 /workjournal last [N]                           Show the last N entries (default 1, full body)
 /workjournal check                              Find entries relevant to the current conversation
 /workjournal workspaces                         Interactive workspace picker
@@ -295,8 +295,9 @@ Passthrough — run the CLI command verbatim:
   /workjournal entries list|write|last|get|update|delete|search|semantic-search <ws> <j> …  Entries within a journal
   /workjournal entries write <ws> <j> -t … -s … -b … [--tags a,b,c]  Optional comma-separated tag names (Plus+)
   /workjournal entries update <ws> <j> <idx> [--tags a,b,c]   Replace the tag set (--tags "" clears)
-  /workjournal entries semantic-search <ws> <j> <query> [--limit N]  Pgvector semantic search over the journal (Plus+); surfaces tier-rejection errors verbatim
-  `workjournal search <query>` / `workjournal find [<address>] <query> [--type text|rag] [--limit N] [--offset N]`  Global search (POST /v1/search) / controlled search (POST /v1/find); reached via the `search` / `find` shortcuts
+  /workjournal entries search <ws> <j> <query>                 Deprecated (stops working after Mon, 30 Nov 2026 23:59:59 GMT): use /workjournal find wj:<ws>.<j> <query>
+  /workjournal entries semantic-search <ws> <j> <query> [--limit N]  Deprecated (stops working after Mon, 30 Nov 2026 23:59:59 GMT): use /workjournal find wj:<ws>.<j> <query> --type rag
+  `workjournal search <query>` / `workjournal find [<address>] <query> [--type text|rag] [--limit N] [--offset N]`  Global search (POST /v1/search) / controlled search (POST /v1/find); reached via the `search` / `find` shortcuts. A query starting with `-` goes last, after `--`: `find wj:<ws>.<j> --type rag --json -- "-legacy auth"`
   /workjournal prompts list|new|get|update|delete <ws> …  Workspace prompts (Plus/Pro; parameters vary by command)
   /workjournal tags list|get|new|update|delete <ws> …                Workspace tag registry (Plus+; create gated, edit/delete not)
   /workjournal tags assign <ws> <j> <name>                            Make a registry tag usable on entries in this journal (Plus+)
@@ -347,8 +348,8 @@ When the routing rules above resolve to passthrough:
 |---|---|
 | `/workjournal entries get acme engineering 5` | `workjournal entries get acme engineering 5 --json` |
 | `/workjournal entries update acme engineering 5 -t "Verified"` | `workjournal entries update acme engineering 5 -t "Verified" --json` |
-| `/workjournal entries semantic-search acme engineering "pgvector decision"` | `workjournal entries semantic-search acme engineering "pgvector decision" --json` (Plus+; 402 surfaced verbatim on Free) |
-| `/workjournal entries semantic-search acme engineering "retry semantics" --limit 25` | `workjournal entries semantic-search acme engineering "retry semantics" --limit 25 --json` |
+| `/workjournal find wj:acme.engineering "pgvector decision" --type rag` | `workjournal find wj:acme.engineering "pgvector decision" --type rag --json` (Plus+; 402 surfaced verbatim on Free) |
+| `/workjournal find acme.engineering "retry semantics" --limit 25` | `workjournal find acme.engineering "retry semantics" --limit 25 --json` |
 | `/workjournal contributors list acme engineering` | `workjournal contributors list acme engineering --json` |
 | `/workjournal invites new acme engineering alice@example.com` | `workjournal invites new acme engineering alice@example.com --json` |
 | `/workjournal export acme engineering -f md -p /tmp/out.md` | `workjournal export acme engineering -f md -p /tmp/out.md` |
