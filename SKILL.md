@@ -4,7 +4,7 @@ description: Development journal for AI coding agents. Write entries capturing d
 compatibility: Requires Bash tool and internet access. Credentials stored in the user config directory (~/.config/workjournal/ on Linux/macOS, %APPDATA%\workjournal\ on Windows).
 metadata:
   author: Venture Squad LTD
-  version: "1.29"
+  version: "1.30"
 ---
 
 You are handling a `/workjournal` command for the Workjournal skill. The skill is a thin shell over the `workjournal` CLI: most invocations pass straight through to the CLI, with a small set of ergonomic shortcuts where the CLI alone can't do the job (because they need the agent to synthesise a title, correlate with the conversation, or drive an interactive picker).
@@ -90,7 +90,7 @@ Once resolved, reuse the same slugs across the rest of the skill invocation — 
 The default action when the first word isn't a recognised keyword. Writes a journal entry summarising the current conversation.
 
 1. Run the auth precheck and the selection precheck. Capture `<ws>` and `<j>`.
-2. **Fetch the journal's prompt before reviewing the conversation.** Run `npx --yes @workjournal/cli journals get <ws> <j> --json` and parse `prompt.body` from the response — it's always non-empty. The journal-fetch endpoint returns the system-default body whenever no custom prompt is assigned (Free always; Plus/Pro before the owner assigns one), and the assigned custom prompt's body otherwise — `prompt.source` distinguishes them, but you only need `prompt.body`. Treat `prompt.body` as the writing instruction for this journal: it dictates structure, voice, sections to include or skip. The next step's review is filtered through that lens. Why fetch first: prompts are per-journal and may have changed since the last session, so don't rely on memory.
+2. **Fetch the journal's prompt before reviewing the conversation.** Run `npx --yes @workjournal/cli journals get <ws> <j> --json` and parse `prompt.body` from the response — it's always non-empty. The journal-fetch endpoint returns the system-default body whenever no custom prompt is assigned (Free always; Plus/Pro before someone who manages the journal assigns one), and the assigned custom prompt's body otherwise — `prompt.source` distinguishes them, but you only need `prompt.body`. Treat `prompt.body` as the writing instruction for this journal: it dictates structure, voice, sections to include or skip. The next step's review is filtered through that lens. Why fetch first: prompts are per-journal and may have changed since the last session, so don't rely on memory.
 3. **Fetch the journal's assigned tags.** Run `npx --yes @workjournal/cli tags list <ws> --journal <j> --json` and keep only rows where `assigned === true`. On non-Plus workspaces this list is empty (Free can't create tags) — skip the rest of this step. If the command fails (FREE workspace, network), don't block the write — just proceed without tags.
 4. Review the conversation so far. Identify what work was performed — files touched, decisions made, bugs fixed, trade-offs accepted. Apply `prompt.body` from step 2 to shape the title, summary, and body.
 5. If the user provided a title (`/workjournal Some title`), use it. Otherwise synthesise a concise 3–8 word title (max 80 characters) that captures the **outcome**, not the process.
@@ -226,7 +226,7 @@ Interactive picker for the active workspace's journals, with a substring filter,
 
    Reply with a number to select.
    ```
-   Wait for the user's reply. Only `select` is offered — the caller is a contributor, not an owner, so `delete`/`rename`/`change url` aren't valid actions. Resolve the action:
+   Wait for the user's reply. Only `select` is offered — on a shared journal the caller is a contributor (`access: contribute`), so `delete`/`rename`/`change url` aren't valid actions. Resolve the action:
    - Run `workjournal journals select <real-ws> <slug> --json` using the workspace slug from the row the user picked (e.g. `acme engineering`, not `shared-with-me engineering`). This avoids the slug-collision case entirely — the picker already disambiguated by showing `<ws>/<slug>`.
    - Confirm: *"Active journal: `<real-ws>/<slug>`."* The persisted config holds the real workspace slug, which is what every downstream command reads.
 
